@@ -71,4 +71,3 @@ export function InviteDialog({ open, onOpenChange, retroName }: InviteDialogProp
     </Dialog>
   )
 }
-

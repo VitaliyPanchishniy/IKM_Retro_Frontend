@@ -27,18 +27,38 @@ export function AuthStatus() {
 
   useEffect(() => {
     // Check if user is logged in
-    const storedUser = localStorage.getItem("user")
-    if (storedUser) {
-      try {
-        const userData = JSON.parse(storedUser)
-        if (userData.isLoggedIn) {
-          setUser(userData)
+    const checkAuth = () => {
+      const storedUser = localStorage.getItem("user")
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser)
+          if (userData.isLoggedIn) {
+            setUser(userData)
+          } else {
+            setUser(null)
+          }
+        } catch (e) {
+          console.error("Error parsing user data:", e)
+          setUser(null)
         }
-      } catch (e) {
-        console.error("Error parsing user data:", e)
+      } else {
+        setUser(null)
       }
+      setIsLoading(false)
     }
-    setIsLoading(false)
+
+    checkAuth()
+
+    // Add event listener for storage changes
+    window.addEventListener("storage", checkAuth)
+
+    // Custom event for auth changes within the app
+    window.addEventListener("auth-change", checkAuth)
+
+    return () => {
+      window.removeEventListener("storage", checkAuth)
+      window.removeEventListener("auth-change", checkAuth)
+    }
   }, [])
 
   const handleLogout = () => {
@@ -51,6 +71,9 @@ export function AuthStatus() {
           isLoggedIn: false,
         }),
       )
+
+      // Dispatch custom event to notify other components
+      window.dispatchEvent(new Event("auth-change"))
     }
 
     // Clear user state
@@ -125,4 +148,3 @@ export function AuthStatus() {
     </DropdownMenu>
   )
 }
-

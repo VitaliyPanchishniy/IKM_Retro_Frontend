@@ -52,4 +52,3 @@ export function NavProjects({ projects, className, ...props }: NavProjectsProps)
     </div>
   )
 }
-

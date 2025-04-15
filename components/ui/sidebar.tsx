@@ -786,4 +786,3 @@ export {
   SidebarProvider2 as SidebarProviderNew,
   useSidebarContext as useSidebarContextNew,
 }
-

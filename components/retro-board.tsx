@@ -239,4 +239,3 @@ export function RetroBoard({ columns, items, onAddItem, onVote, onAddComment, cu
     </div>
   )
 }
-

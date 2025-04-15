@@ -145,4 +145,3 @@ export function TeamSwitcher({ teams, className, ...props }: TeamSwitcherProps) 
     </Dialog>
   )
 }
-

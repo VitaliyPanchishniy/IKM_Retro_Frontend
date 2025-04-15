@@ -65,4 +65,3 @@ export function NavUser({ user, className, ...props }: NavUserProps) {
     </div>
   )
 }
-
