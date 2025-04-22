@@ -93,7 +93,7 @@ export default function CreatePage() {
         <header className="flex items-center justify-between py-4">
           <Link href="/" className="flex items-center gap-1">
             <span className="text-xl font-bold text-indigo-700">
-              Retro<span className="text-purple-600">KM</span>
+              Retro<span className="text-purple-600">IKM</span>
             </span>
           </Link>
           <div className="flex items-center gap-2">
@@ -253,7 +253,7 @@ export default function CreatePage() {
           </div>
         </main>
 
-        <footer className="text-center text-sm text-gray-500 py-4 mt-4">© 2023 RetroKM. All rights reserved.</footer>
+        <footer className="text-center text-sm text-gray-500 py-4 mt-4">© 2023 RetroIKM. All rights reserved.</footer>
       </div>
     </div>
   )

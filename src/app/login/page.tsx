@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2 } from "lucide-react"
 import { motion } from "framer-motion"
+import axios from "axios"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -59,44 +60,36 @@ export default function LoginPage() {
       return
     }
 
-    setIsLoading(true)
-
+    setIsLoading(true);
+  
     try {
-      // In a real app, this would be an API call to authenticate the user
-      // For demo purposes, we'll simulate a delay and redirect
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      // Check if we have a user with this email in localStorage
-      const storedUserData = localStorage.getItem("user")
-
-      if (storedUserData) {
-        const userData = JSON.parse(storedUserData)
-
-        if (userData.email === formData.email) {
-          // Update login status
-          localStorage.setItem(
-            "user",
-            JSON.stringify({
-              ...userData,
-              isLoggedIn: true,
-            }),
-          )
-
-          // Redirect to the specified path or dashboard
-          router.push(redirectPath || "/dashboard")
-          return
-        }
+      const response = await axios.post('http://localhost:5014/api/v1/account/login', {
+        email: formData.email,
+        password: formData.password,
+      });
+  
+      console.log('Login success', response.data);
+      localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('refreshToken', response.data.refreshToken);
+      localStorage.setItem('user', JSON.stringify({
+        email: formData.email,
+        isLoggedIn: true,
+      }));
+  
+      router.push(redirectPath || "/dashboard");
+    } catch (error: any) {
+      console.error("Login error:", error);
+  
+      // Покажи ошибку от сервера, если есть
+      if (error.response && error.response.status === 401) {
+        setErrors({ form: "Invalid email or password" });
+      } else {
+        setErrors({ form: "An error occurred during login. Please try again." });
       }
-
-      // If we get here, login failed
-      setErrors({ form: "Invalid email or password" })
-    } catch (error) {
-      console.error("Login error:", error)
-      setErrors({ form: "An error occurred during login. Please try again." })
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
@@ -115,7 +108,7 @@ export default function LoginPage() {
           <div className="mb-8">
             <Link href="/" className="flex items-center gap-1">
               <span className="text-xl font-bold text-indigo-700">
-                Retro<span className="text-purple-600">KM</span>
+                Retro<span className="text-purple-600">IKM</span>
               </span>
             </Link>
           </div>
@@ -125,7 +118,7 @@ export default function LoginPage() {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="bg-white rounded-lg shadow-md p-4 mb-6"
           >
-            <img src="/placeholder.svg?height=200&width=300" alt="Retro Board Example" className="w-full rounded-md" />
+            <img src="/registr-image.jpg?height=200&width=300" alt="Retro Board Example" className="w-full rounded-md" />
           </motion.div>
           <motion.h2
             initial={{ opacity: 0 }}

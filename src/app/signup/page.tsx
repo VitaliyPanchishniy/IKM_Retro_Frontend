@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2 } from "lucide-react"
 import { motion } from "framer-motion"
+import axios from "axios"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -90,6 +91,16 @@ export default function SignupPage() {
         }),
       )
 
+      const response = await axios.post('http://localhost:5014/api/v1/account/register', {
+        email: formData.email,
+        password: formData.password,
+        userName: formData.name, 
+      });
+
+      console.log('Registration success', response.data);
+      localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('refreshToken', response.data.refreshToken);
+
       // Redirect to the specified path or dashboard
       router.push(redirectPath || "/dashboard")
     } catch (error) {
@@ -117,7 +128,7 @@ export default function SignupPage() {
           <div className="mb-8">
             <Link href="/" className="flex items-center gap-1">
               <span className="text-xl font-bold text-indigo-700">
-                Retro<span className="text-purple-600">KM</span>
+                Retro<span className="text-purple-600">IKM</span>
               </span>
             </Link>
           </div>
@@ -127,7 +138,7 @@ export default function SignupPage() {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="bg-white rounded-lg shadow-md p-4 mb-6"
           >
-            <img src="/placeholder.svg?height=200&width=300" alt="Retro Board Example" className="w-full rounded-md" />
+            <img src="/registr-image.jpg?height=200&width=300" alt="Retro Board Example" className="w-full rounded-md" />
           </motion.div>
           <motion.h2
             initial={{ opacity: 0 }}
@@ -255,7 +266,7 @@ export default function SignupPage() {
                   onChange={handleChange}
                 />
                 {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
-                <p className="text-xs text-gray-500">Must be at least 8 characters</p>
+                <p className="text-xs text-gray-500">Must be at least 6 characters</p>
               </div>
 
               <div className="space-y-2">
