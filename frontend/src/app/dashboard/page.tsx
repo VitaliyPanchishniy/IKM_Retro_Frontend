@@ -197,7 +197,7 @@ export default function DashboardPage() {
             <div className="flex items-center">
               <Link href="/" className="flex items-center gap-1">
                 <span className="text-xl font-bold text-indigo-700">
-                  Retro<span className="text-purple-600">KM</span>
+                  Retro<span className="text-purple-600">IKM</span>
                 </span>
               </Link>
               <nav className="ml-10 flex space-x-4">

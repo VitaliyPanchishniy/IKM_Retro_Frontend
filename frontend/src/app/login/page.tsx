@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2 } from "lucide-react"
 import { motion } from "framer-motion"
-import axios from 'axios';
+import axios from "axios"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -54,12 +54,12 @@ export default function LoginPage() {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-  
+    e.preventDefault()
+
     if (!validateForm()) {
-      return;
+      return
     }
-  
+
     setIsLoading(true);
   
     try {
@@ -90,7 +90,6 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
-  
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
@@ -109,7 +108,7 @@ export default function LoginPage() {
           <div className="mb-8">
             <Link href="/" className="flex items-center gap-1">
               <span className="text-xl font-bold text-indigo-700">
-                Retro<span className="text-purple-600">KM</span>
+                Retro<span className="text-purple-600">IKM</span>
               </span>
             </Link>
           </div>
@@ -119,7 +118,7 @@ export default function LoginPage() {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="bg-white rounded-lg shadow-md p-4 mb-6"
           >
-            <img src="/placeholder.svg?height=200&width=300" alt="Retro Board Example" className="w-full rounded-md" />
+            <img src="/registr-image.jpg?height=200&width=300" alt="Retro Board Example" className="w-full rounded-md" />
           </motion.div>
           <motion.h2
             initial={{ opacity: 0 }}

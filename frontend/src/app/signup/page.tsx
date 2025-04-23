@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2 } from "lucide-react"
 import { motion } from "framer-motion"
-import axios from 'axios';
+import axios from "axios"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -44,8 +44,11 @@ export default function SignupPage() {
     const newErrors: Record<string, string> = {}
 
     if (!formData.name.trim()) {
-      newErrors.name = "Name is required"
+      newErrors.name = "Name is required";
+    } else if (!/[a-zA-Zа-яА-ЯіІїЇєЄґҐ]/.test(formData.name)) {
+      newErrors.name = "Name must contain at least one letter";
     }
+    
 
     if (!formData.email.trim()) {
       newErrors.email = "Email is required"
@@ -54,9 +57,15 @@ export default function SignupPage() {
     }
 
     if (!formData.password) {
-      newErrors.password = "Password is required"
+      newErrors.password = "Password is required";
     } else if (formData.password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters"
+      newErrors.password = "Password must be at least 8 characters";
+    } else if (!/[A-Z]/.test(formData.password)) {
+      newErrors.password = "Password must contain at least one uppercase letter";
+    } else if (!/\d/.test(formData.password)) {
+      newErrors.password = "Password must contain at least one number";
+    } else if (!/[!@#$%^&*(),.?":{}_|<>]/.test(formData.password)) {
+      newErrors.password = "Password must contain at least one special character";
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -128,7 +137,7 @@ export default function SignupPage() {
           <div className="mb-8">
             <Link href="/" className="flex items-center gap-1">
               <span className="text-xl font-bold text-indigo-700">
-                Retro<span className="text-purple-600">KM</span>
+                Retro<span className="text-purple-600">IKM</span>
               </span>
             </Link>
           </div>
@@ -138,7 +147,7 @@ export default function SignupPage() {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="bg-white rounded-lg shadow-md p-4 mb-6"
           >
-            <img src="/placeholder.svg?height=200&width=300" alt="Retro Board Example" className="w-full rounded-md" />
+            <img src="/registr-image.jpg?height=200&width=300" alt="Retro Board Example" className="w-full rounded-md" />
           </motion.div>
           <motion.h2
             initial={{ opacity: 0 }}
@@ -266,7 +275,7 @@ export default function SignupPage() {
                   onChange={handleChange}
                 />
                 {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
-                <p className="text-xs text-gray-500">Must be at least 8 characters</p>
+                <p className="text-xs text-gray-500">Must be at least 6 characters</p>
               </div>
 
               <div className="space-y-2">

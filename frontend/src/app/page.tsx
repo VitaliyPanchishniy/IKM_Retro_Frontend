@@ -34,10 +34,10 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen bg-white">
       <header className="border-b py-4">
-        <div className="container flex items-center justify-between px-4 md:px-6">
+        <div className="container mx-auto flex items-center justify-between px-4 md:px-6">
           <Link href="/" className="flex items-center gap-1">
             <span className="text-xl font-bold text-indigo-700">
-              Retro<span className="text-purple-600">KM</span>
+              Retro<span className="text-purple-600">IKM</span>
             </span>
           </Link>
           <nav className="flex items-center gap-6">
@@ -56,7 +56,7 @@ export default function Home() {
 
       <main className="flex-1">
         <section className="py-16 md:py-24">
-          <div className="container px-4 md:px-6">
+          <div className="container mx-auto px-4 md:px-6">
             <div className="max-w-3xl mx-auto text-center mb-12">
               <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Run better retros, together</h1>
               <p className="text-xl text-gray-600 mb-8">
@@ -78,8 +78,8 @@ export default function Home() {
             <div className="mt-16 relative">
               <div className="bg-gray-50 rounded-xl p-4 md:p-8 shadow-lg">
                 <img
-                  src="/placeholder.svg?height=400&width=800"
-                  alt="RetroKM Board Example"
+                  src="/main_page.png?height=400&width=800"
+                  alt="RetroIKM Board Example"
                   className="w-full rounded-lg border shadow-sm"
                 />
               </div>
@@ -88,7 +88,7 @@ export default function Home() {
         </section>
 
         <section className="py-16 bg-gray-50">
-          <div className="container px-4 md:px-6">
+          <div className="container mx-auto px-4 md:px-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="bg-white p-6 rounded-lg shadow-sm">
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
@@ -157,7 +157,7 @@ export default function Home() {
         </section>
 
         <section className="py-16">
-          <div className="container px-4 md:px-6">
+          <div className="container mx-auto px-4 md:px-6">
             <h2 className="text-2xl font-bold text-center text-purple-600 mb-12">Loved by teams worldwide</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -170,7 +170,7 @@ export default function Home() {
                   </div>
                 </div>
                 <p className="text-gray-700">
-                  "RetroKM has transformed how our team reflects and improves. The interface is intuitive and the
+                  "RetroIKM has transformed how our team reflects and improves. The interface is intuitive and the
                   features are exactly what we needed."
                 </p>
               </div>
@@ -193,7 +193,7 @@ export default function Home() {
         </section>
 
         <section className="py-16 bg-purple-100">
-          <div className="container px-4 md:px-6">
+          <div className="container mx-auto px-4 md:px-6">
             <div className="max-w-2xl mx-auto text-center">
               <h2 className="text-3xl font-bold mb-4">Ready to improve your team's retrospectives?</h2>
               <p className="text-lg text-gray-700 mb-8">
@@ -210,10 +210,10 @@ export default function Home() {
       </main>
 
       <footer className="border-t py-12 bg-white">
-        <div className="container px-4 md:px-6">
+        <div className="container mx-auto px-4 md:px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div>
-              <h3 className="font-bold mb-4">RetroKM</h3>
+              <h3 className="font-bold mb-4">RetroIKM</h3>
               <p className="text-sm text-gray-600">Making retrospectives better for teams everywhere.</p>
             </div>
 
@@ -271,7 +271,7 @@ export default function Home() {
           </div>
 
           <div className="mt-8 pt-8 border-t text-center text-sm text-gray-600">
-            <p>© 2023 RetroKM. All rights reserved.</p>
+            <p>© 2023 RetroIKM. All rights reserved.</p>
           </div>
         </div>
       </footer>

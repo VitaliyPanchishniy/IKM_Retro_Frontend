@@ -57,7 +57,7 @@ export default function JoinPage() {
           <div className="mb-8">
             <Link href="/" className="flex items-center gap-1">
               <span className="text-xl font-bold text-indigo-700">
-                Retro<span className="text-purple-600">KM</span>
+                Retro<span className="text-purple-600">IKM</span>
               </span>
             </Link>
           </div>

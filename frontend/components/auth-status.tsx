@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Settings, LayoutGrid } from "lucide-react"
+import axios from "axios"
 
 interface User {
   name: string
@@ -26,13 +27,16 @@ export function AuthStatus() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Check if user is logged in
     const checkAuth = () => {
       const storedUser = localStorage.getItem("user")
       if (storedUser) {
         try {
           const userData = JSON.parse(storedUser)
-          if (userData.isLoggedIn) {
+          if (
+            userData.isLoggedIn &&
+            typeof userData.name === "string" &&
+            typeof userData.email === "string"
+          ) {
             setUser(userData)
           } else {
             setUser(null)
@@ -48,11 +52,7 @@ export function AuthStatus() {
     }
 
     checkAuth()
-
-    // Add event listener for storage changes
     window.addEventListener("storage", checkAuth)
-
-    // Custom event for auth changes within the app
     window.addEventListener("auth-change", checkAuth)
 
     return () => {
@@ -61,26 +61,38 @@ export function AuthStatus() {
     }
   }, [])
 
-  const handleLogout = () => {
-    // Update user in localStorage
-    if (user) {
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          ...user,
-          isLoggedIn: false,
-        }),
-      )
+  const handleLogout = async () => {
+    try {
+      const refreshToken = localStorage.getItem("refreshToken")
+      if (refreshToken) {
+        try {
+          await axios.post("http://localhost:5014/account/logout", {
+            refreshToken: refreshToken,
+          })
+          console.log("Logout successful")
+        } catch (apiError) {
+          console.error("API logout error:", apiError)
+        }
+      }
 
-      // Dispatch custom event to notify other components
-      window.dispatchEvent(new Event("auth-change"))
+      localStorage.removeItem("accessToken")
+      localStorage.removeItem("refreshToken")
+
+      if (user) {
+        localStorage.setItem(
+          "user",
+          JSON.stringify({
+            ...user,
+            isLoggedIn: false,
+          }),
+        )
+      }
+
+      setUser(null)
+      router.push("/")
+    } catch (error) {
+      console.error("Logout error:", error)
     }
-
-    // Clear user state
-    setUser(null)
-
-    // Redirect to home page
-    router.push("/")
   }
 
   if (isLoading) {
@@ -108,7 +120,7 @@ export function AuthStatus() {
         <Button variant="ghost" className="relative h-10 w-10 rounded-full">
           <Avatar className="h-10 w-10">
             <AvatarFallback className="bg-purple-100 text-purple-700">
-              {user.name.charAt(0).toUpperCase()}
+              {(user.name?.charAt(0) || "?").toUpperCase()}
             </AvatarFallback>
           </Avatar>
         </Button>
@@ -116,8 +128,8 @@ export function AuthStatus() {
       <DropdownMenuContent align="end">
         <div className="flex items-center justify-start gap-2 p-2">
           <div className="flex flex-col space-y-1 leading-none">
-            <p className="font-medium">{user.name}</p>
-            <p className="text-sm text-muted-foreground">{user.email}</p>
+            <p className="font-medium">{user.name || "Unknown User"}</p>
+            <p className="text-sm text-muted-foreground">{user.email || "No Email"}</p>
           </div>
         </div>
         <DropdownMenuSeparator />

@@ -246,7 +246,7 @@ export default function RetrospectivePage() {
             <div className="flex items-center">
               <Link href="/" className="flex items-center gap-1">
                 <span className="text-xl font-bold text-indigo-700">
-                  Retro<span className="text-purple-600">KM</span>
+                  Retro<span className="text-purple-600">IKM</span>
                 </span>
               </Link>
               <div className="ml-4 text-lg font-medium text-gray-900">{retroName}</div>
