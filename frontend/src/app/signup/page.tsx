@@ -100,7 +100,7 @@ export default function SignupPage() {
         }),
       )
 
-      const response = await axios.post('http://localhost:5014/api/v1/account/register', {
+      const response = await axios.post('http://localhost:5014/api/account/register', {
         email: formData.email,
         password: formData.password,
         userName: formData.name, 

@@ -26,7 +26,7 @@ API.interceptors.response.use(
 
             try {
                 const refreshToken = localStorage.getItem('refreshToken');
-                const res = await axios.post('http://localhost:5014/api/v1/account/refresh', refreshToken, {
+                const res = await axios.post('http://localhost:5014/api/account/refresh', refreshToken, {
                     headers: {
                         'Content-Type': 'application/json',
                     },

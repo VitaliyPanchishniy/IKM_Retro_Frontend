@@ -63,7 +63,7 @@ export default function LoginPage() {
     setIsLoading(true);
   
     try {
-      const response = await axios.post('http://localhost:5014/api/v1/account/login', {
+      const response = await axios.post('http://localhost:5014/api/account/login', {
         email: formData.email,
         password: formData.password,
       });
@@ -72,7 +72,7 @@ export default function LoginPage() {
       localStorage.setItem('accessToken', response.data.accessToken);
       localStorage.setItem('refreshToken', response.data.refreshToken);
       localStorage.setItem('user', JSON.stringify({
-        email: formData.email,
+        email: "fff",
         isLoggedIn: true,
       }));
   

@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Search, Plus, MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react"
+import axios from "axios";
+import API from '../../../lib/api';
 
 // Типы для ретроспектив
 interface Retrospective {
@@ -51,7 +53,12 @@ export default function DashboardPage() {
         router.push("/login?redirect=/dashboard")
         return
       }
-      setUser(userData)
+      const fetchUserData = async () => {
+        const response = await API.get('/api/account/self');  // Получаем данные с сервера
+        setUser(response.data);
+        console.log('Ответ сервера:', response.data);  // Сохраняем данные в стейт
+      };
+      fetchUserData();
 
       // Загрузка ретроспектив пользователя
       const storedRetros = localStorage.getItem(`retros_${userData.email}`)
@@ -178,6 +185,18 @@ export default function DashboardPage() {
     return colors[index]
   }
 
+  const handleLogout = async () => {
+    try {
+        await API.post('/api/account/logout');
+        // После успешного выхода перенаправляем на страницу входа
+        localStorage.clear();
+        router.push('/login');
+    } catch (error) {
+        console.error('Ошибка при выходе:', error);
+    }
+  };
+
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
@@ -237,7 +256,7 @@ export default function DashboardPage() {
                   <Button variant="ghost" size="icon" className="rounded-full ml-2">
                     <Avatar className="h-8 w-8">
                       <AvatarFallback className="bg-purple-100 text-purple-700">
-                        {user?.name?.charAt(0).toUpperCase()}
+                        {user?.userName?.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -245,7 +264,7 @@ export default function DashboardPage() {
                 <DropdownMenuContent align="end">
                   <div className="flex items-center justify-start gap-2 p-2">
                     <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium">{user?.name}</p>
+                      <p className="font-medium">{user?.userName}</p>
                       <p className="text-sm text-muted-foreground">{user?.email}</p>
                     </div>
                   </div>
@@ -257,8 +276,8 @@ export default function DashboardPage() {
                     <Link href="/help">Help & Support</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/logout">Log out</Link>
+                  <DropdownMenuItem onClick={handleLogout}>
+                    Log out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
