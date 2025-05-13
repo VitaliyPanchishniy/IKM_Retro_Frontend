@@ -8,13 +8,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import API from '../../../lib/api';
 
 export default function CreatePage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [retroName, setRetroName] = useState("")
   const [teamName, setTeamName] = useState("")
-  const [selectedTemplate, setSelectedTemplate] = useState("start-stop-continue")
+  const [selectedTemplate, setSelectedTemplate] = useState("StartStopContinue")
   const [anonymousMode, setAnonymousMode] = useState(false)
 
   // Check if user is logged in
@@ -51,41 +52,50 @@ export default function CreatePage() {
     )
   }
 
-  const handleCreateRetro = () => {
-    if (!retroName) return
+  // const handleCreateRetro = () => {
+  //   if (!retroName) return
 
-    // Create a new retrospective object
-    const newRetro = {
-      id: `retro-${Date.now()}`,
-      name: retroName,
-      template: selectedTemplate,
-      createdAt: new Date().toISOString(),
-      participants: 0,
-      status: "active" as const,
+  //   // Create a new retrospective object
+  //   const newRetro = {
+  //     id: `retro-${Date.now()}`,
+  //     name: retroName,
+  //     template: selectedTemplate,
+  //     createdAt: new Date().toISOString(),
+  //     participants: 0,
+  //     status: "active" as const,
+  //   }
+
+
+  //   // Navigate to the retrospective page
+  //   router.push(`/retrospective?name=${encodeURIComponent(retroName)}&template=${encodeURIComponent(selectedTemplate)}`)
+  // }
+
+  const handleCreateRetro = async () => {
+    try {
+      
+      // console.log(retroName);
+      // console.log(selectedTemplate);
+      const templateMap = {
+        StartStopContinue: 1,
+        GladSadMad: 2,
+        StartStopContinueChange: 3,
+      } as const;
+      const selectedTemplateType = templateMap[selectedTemplate as keyof typeof templateMap];
+ 
+      const response = await API.post('/api/Retrospective', {
+        title: retroName,
+        templateType: selectedTemplateType
+      });
+
+      console.log('Ретроспектива создана!', response.data);
+      router.push("/dashboard")
+      // можно редиректить или показывать уведомление
+    } catch (error) {
+      console.error('Ошибка при создании ретроспективы', retroName, selectedTemplate, error);
+      console.log(retroName);
+      console.log(selectedTemplate);
     }
-
-    // Save to localStorage
-    const storedUser = localStorage.getItem("user")
-    if (storedUser) {
-      try {
-        const userData = JSON.parse(storedUser)
-        const storedRetros = localStorage.getItem(`retros_${userData.email}`)
-        let retros = []
-
-        if (storedRetros) {
-          retros = JSON.parse(storedRetros)
-        }
-
-        retros.push(newRetro)
-        localStorage.setItem(`retros_${userData.email}`, JSON.stringify(retros))
-      } catch (e) {
-        console.error("Error saving retrospective:", e)
-      }
-    }
-
-    // Navigate to the retrospective page
-    router.push(`/retrospective?name=${encodeURIComponent(retroName)}&template=${encodeURIComponent(selectedTemplate)}`)
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -146,7 +156,7 @@ export default function CreatePage() {
               />
             </div>
 
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
               <Label htmlFor="team-name">Team Name (Optional)</Label>
               <Input
                 id="team-name"
@@ -154,7 +164,7 @@ export default function CreatePage() {
                 value={teamName}
                 onChange={(e) => setTeamName(e.target.value)}
               />
-            </div>
+            </div> */}
 
             <div className="space-y-2">
               <Label htmlFor="template">Choose Template</Label>
@@ -163,10 +173,9 @@ export default function CreatePage() {
                   <SelectValue placeholder="Select a template" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="start-stop-continue">Start/Stop/Continue</SelectItem>
-                  <SelectItem value="glad-sad-mad">Glad/Sad/Mad</SelectItem>
-                  <SelectItem value="start-stop-continue-change">Start/Stop/Continue/Change</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
+                  <SelectItem value="StartStopContinue">Start/Stop/Continue</SelectItem>
+                  <SelectItem value="GladSadMad">Glad/Sad/Mad</SelectItem>
+                  <SelectItem value="StartStopContinueChange">Start/Stop/Continue/Change</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -174,7 +183,7 @@ export default function CreatePage() {
             <div>
               <Label>Template Preview</Label>
               <div className="grid grid-cols-3 gap-4 mt-2">
-                {selectedTemplate === "start-stop-continue" && (
+                {selectedTemplate === "StartStopContinue" && (
                   <>
                     <div className="bg-green-50 border border-green-200 rounded-md p-3 text-center">
                       <div className="text-green-600 font-medium">Start</div>
@@ -188,7 +197,7 @@ export default function CreatePage() {
                   </>
                 )}
 
-                {selectedTemplate === "glad-sad-mad" && (
+                {selectedTemplate === "GladSadMad" && (
                   <>
                     <div className="bg-green-50 border border-green-200 rounded-md p-3 text-center">
                       <div className="text-green-600 font-medium">Glad</div>
@@ -202,7 +211,7 @@ export default function CreatePage() {
                   </>
                 )}
 
-                {selectedTemplate === "start-stop-continue-change" && (
+                {selectedTemplate === "StartStopContinueChange" && (
                   <>
                     <div className="bg-green-50 border border-green-200 rounded-md p-3 text-center">
                       <div className="text-green-600 font-medium">Start</div>
@@ -235,13 +244,13 @@ export default function CreatePage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
+            {/* <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label htmlFor="anonymous-mode">Enable Anonymous Mode</Label>
                 <p className="text-sm text-gray-500">Participants' names will be hidden</p>
               </div>
               <Switch id="anonymous-mode" checked={anonymousMode} onCheckedChange={setAnonymousMode} />
-            </div>
+            </div> */}
 
             <Button
               className="w-full bg-purple-600 hover:bg-purple-700 mt-4"
@@ -253,7 +262,7 @@ export default function CreatePage() {
           </div>
         </main>
 
-        <footer className="text-center text-sm text-gray-500 py-4 mt-4">© 2023 RetroIKM. All rights reserved.</footer>
+        <footer className="text-center text-sm text-gray-500 py-4 mt-4">© 2025 RetroIKM. All rights reserved.</footer>
       </div>
     </div>
   )
