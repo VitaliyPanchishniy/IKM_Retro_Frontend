@@ -21,12 +21,10 @@ import API from '../../../lib/api';
 // Типы для ретроспектив
 interface Retrospective {
   id: string
-  name: string
-  template: string
+  title: string
+  template: number
   createdAt: string
-  participants: number
-  status: "active" | "completed" | "archived"
-  users?: string[]
+  isActive: boolean
 }
 
 export default function DashboardPage() {
@@ -46,66 +44,45 @@ export default function DashboardPage() {
       router.push("/login?redirect=/dashboard")
       return
     }
-
-    try {
-      const userData = JSON.parse(storedUser)
-      if (!userData.isLoggedIn) {
-        router.push("/login?redirect=/dashboard")
-        return
-      }
-      const fetchUserData = async () => {
-        const response = await API.get('/api/account/self');  // Получаем данные с сервера
-        setUser(response.data);
-        console.log('Ответ сервера:', response.data);  // Сохраняем данные в стейт
-      };
-      fetchUserData();
-
-      // Загрузка ретроспектив пользователя
-      const storedRetros = localStorage.getItem(`retros_${userData.email}`)
-      if (storedRetros) {
-        setRetrospectives(JSON.parse(storedRetros))
-      } else {
-        // Если у пользователя нет ретроспектив, создаем демо-данные
-        const demoRetros: Retrospective[] = [
-          {
-            id: "retro-1",
-            name: "Q1 Product Team Retro",
-            template: "mad-sad-glad",
-            createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-            participants: 5,
-            status: "active",
-            users: ["John", "Sarah", "Mike"],
-          },
-          {
-            id: "retro-2",
-            name: "Sprint 23 Retrospective",
-            template: "start-stop-continue",
-            createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-            participants: 8,
-            status: "archived",
-            users: ["Alex", "Emma"],
-          },
-          {
-            id: "retro-3",
-            name: "Design Team Weekly",
-            template: "mad-sad-glad",
-            createdAt: new Date().toISOString(),
-            participants: 3,
-            status: "active",
-            users: ["Lisa", "David", "Anna", "Mark"],
-          },
-        ]
-        setRetrospectives(demoRetros)
-        localStorage.setItem(`retros_${userData.email}`, JSON.stringify(demoRetros))
-      }
-    } catch (e) {
-      console.error("Error parsing user data:", e)
+  
+    const userData = JSON.parse(storedUser)
+    if (!userData.isLoggedIn) {
       router.push("/login?redirect=/dashboard")
       return
     }
-
-    setIsLoading(false)
+  
+    const fetchData = async () => {
+      try {
+        // Получаем пользователя
+        const userResponse = await API.get('/api/account/self')
+        setUser(userResponse.data)
+  
+        // Получаем ретроспективы
+        const retrosResponse = await API.get('/api/Retrospective')
+  
+        // Преобразуем в нужный формат
+        const cleanedRetros: Retrospective[] = retrosResponse.data.map((item: any) => {
+          const r = item.retrospective
+          return {
+            id: r.id,
+            title: r.title,
+            template: r.template,
+            createdAt: r.createdAt,
+            isActive: r.isActive,
+          }
+        })
+  
+        setRetrospectives(cleanedRetros)
+      } catch (e) {
+        console.error("Ошибка при получении данных с сервера:", e)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+  
+    fetchData()
   }, [router])
+  
 
   const handleCreateRetro = () => {
     router.push("/create")
@@ -121,17 +98,16 @@ export default function DashboardPage() {
   }
 
   const handleOpenRetro = (retro: Retrospective) => {
-    router.push(`/retrospective?name=${encodeURIComponent(retro.name)}&template=${encodeURIComponent(retro.template)}`)
+    router.push(`/retrospective?name=${encodeURIComponent(retro.title)}&template=${encodeURIComponent(retro.template)}`)
   }
 
   const filteredRetros = retrospectives.filter((retro) => {
-    const matchesSearch = retro.name.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesTemplate =
-      selectedTemplate === "All Templates" || retro.template === selectedTemplate.toLowerCase().replace(/\//g, "-")
+    const matchesSearch = retro.title.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesTemplate = selectedTemplate === "All Templates" || retro.template === Number(selectedTemplate)
     const matchesTab =
       activeTab === "created" ||
-      (activeTab === "joined" && false) || // В будущем здесь будет логика для присоединенных ретро
-      (activeTab === "archived" && retro.status === "archived")
+      (activeTab === "joined" && false) // В будущем здесь будет логика для присоединенных ретро
+      // (activeTab === "archived" && retro.status === "archived")
 
     return matchesSearch && matchesTemplate && matchesTab
   })
@@ -145,28 +121,21 @@ export default function DashboardPage() {
     }).format(date)}`
   }
 
-  const getTemplateLabel = (template: string) => {
+  const getTemplateLabel = (template: number) => {
     switch (template) {
-      case "mad-sad-glad":
+      case 2:
         return "Mad/Sad/Glad"
-      case "start-stop-continue":
+      case 1:
         return "Start/Stop/Continue"
-      case "start-stop-continue-change":
+      case 3:
         return "Start/Stop/Continue/Change"
       default:
         return template
     }
   }
 
-  const getStatusClass = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-green-100 text-green-800"
-      case "archived":
-        return "bg-gray-100 text-gray-800"
-      default:
-        return "bg-blue-100 text-blue-800"
-    }
+  const getStatusClass = (isActive: boolean) => {
+    return isActive ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"
   }
 
   const getAvatarInitial = (name: string) => {
@@ -195,6 +164,20 @@ export default function DashboardPage() {
         console.error('Ошибка при выходе:', error);
     }
   };
+
+  const handleDelete = async (id: string) => {
+    const confirmed = confirm("Are you sure you want to delete this retrospective?");
+    if (!confirmed) return;
+  
+    try {
+      await API.delete(`/api/Retrospective/${id}`);
+      setRetrospectives(prev => prev.filter(retro => retro.id !== id));
+    } catch (error) {
+      console.error("Error deleting retrospective", error);
+      alert("Failed to delete the retrospective.");
+    }
+  }
+  
 
 
   if (isLoading) {
@@ -317,9 +300,10 @@ export default function DashboardPage() {
                     value={selectedTemplate}
                     onChange={(e) => setSelectedTemplate(e.target.value)}
                   >
-                    <option>All Templates</option>
-                    <option>Mad/Sad/Glad</option>
-                    <option>Start/Stop/Continue</option>
+                    <option value="All Templates">All Templates</option>
+                    <option value="1">Start/Stop/Continue</option>
+                    <option value="2">Mad/Sad/Glad</option>
+                    <option value="3">Start/Stop/Continue/Change</option>
                   </select>
                 </div>
               </div>
@@ -340,12 +324,12 @@ export default function DashboardPage() {
                   >
                     Joined
                   </TabsTrigger>
-                  <TabsTrigger
+                  {/* <TabsTrigger
                     value="archived"
                     className="rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-purple-600 data-[state=active]:text-purple-600 data-[state=active]:shadow-none"
                   >
                     Archived
-                  </TabsTrigger>
+                  </TabsTrigger> */}
                 </TabsList>
               </div>
 
@@ -364,17 +348,30 @@ export default function DashboardPage() {
                         <div className="flex flex-col sm:flex-row justify-between">
                           <div className="flex-1">
                             <div className="flex justify-between">
-                              <h3 className="font-medium text-gray-900">{retro.name}</h3>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
+                              <h3 className="font-medium text-gray-900">{retro.title}</h3>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={() => handleDelete(retro.id)}
+                                    className="text-red-600 hover:bg-red-100"
+                                  >
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+
                             </div>
                             <div className="mt-1 text-sm text-gray-500">{formatDate(retro.createdAt)}</div>
 
                             <div className="mt-3 flex flex-wrap items-center gap-2">
                               <span
                                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  retro.template === "mad-sad-glad"
+                                  retro.template === 2
                                     ? "bg-purple-100 text-purple-800"
                                     : "bg-blue-100 text-blue-800"
                                 }`}
@@ -384,28 +381,28 @@ export default function DashboardPage() {
 
                               <span
                                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(
-                                  retro.status,
+                                  retro.isActive,
                                 )}`}
                               >
-                                {retro.status.charAt(0).toUpperCase() + retro.status.slice(1)}
+                                {retro.isActive ? "Active" : "Completed"}
                               </span>
                             </div>
 
                             <div className="mt-3 flex items-center justify-between">
                               <div className="flex -space-x-2">
-                                {retro.users &&
+                                {/* {retro.users &&
                                   retro.users.slice(0, 4).map((user, index) => (
                                     <Avatar key={index} className="h-7 w-7 border-2 border-white">
                                       <AvatarFallback className={getAvatarColor(user)}>
                                         {getAvatarInitial(user)}
                                       </AvatarFallback>
                                     </Avatar>
-                                  ))}
-                                {retro.users && retro.users.length > 4 && (
+                                  ))} */}
+                                {/* {retro.users && retro.users.length > 4 && (
                                   <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-xs font-medium">
                                     +{retro.users.length - 4}
                                   </div>
-                                )}
+                                )} */}
                               </div>
 
                               <Button
@@ -414,7 +411,7 @@ export default function DashboardPage() {
                                 className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                                 onClick={() => handleOpenRetro(retro)}
                               >
-                                {retro.status === "archived" ? "View Archive →" : "Open Board →"}
+                                {retro.isActive ? "Open Board →" : "View Summary →"}
                               </Button>
                             </div>
                           </div>
@@ -445,7 +442,7 @@ export default function DashboardPage() {
                         <div className="flex flex-col sm:flex-row justify-between">
                           <div className="flex-1">
                             <div className="flex justify-between">
-                              <h3 className="font-medium text-gray-900">{retro.name}</h3>
+                              <h3 className="font-medium text-gray-900">{retro.title}</h3>
                               <Button variant="ghost" size="icon" className="h-8 w-8">
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
@@ -455,7 +452,7 @@ export default function DashboardPage() {
                             <div className="mt-3 flex flex-wrap items-center gap-2">
                               <span
                                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  retro.template === "mad-sad-glad"
+                                  retro.template === 2
                                     ? "bg-purple-100 text-purple-800"
                                     : "bg-blue-100 text-blue-800"
                                 }`}
@@ -465,28 +462,28 @@ export default function DashboardPage() {
 
                               <span
                                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(
-                                  retro.status,
+                                  retro.isActive,
                                 )}`}
                               >
-                                {retro.status.charAt(0).toUpperCase() + retro.status.slice(1)}
+                                {retro.isActive ? "Active" : "Completed"}
                               </span>
                             </div>
 
                             <div className="mt-3 flex items-center justify-between">
                               <div className="flex -space-x-2">
-                                {retro.users &&
+                                {/* {retro.users &&
                                   retro.users.slice(0, 4).map((user, index) => (
                                     <Avatar key={index} className="h-7 w-7 border-2 border-white">
                                       <AvatarFallback className={getAvatarColor(user)}>
                                         {getAvatarInitial(user)}
                                       </AvatarFallback>
                                     </Avatar>
-                                  ))}
-                                {retro.users && retro.users.length > 4 && (
+                                  ))} */}
+                                {/* {retro.users && retro.users.length > 4 && (
                                   <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-xs font-medium">
                                     +{retro.users.length - 4}
                                   </div>
-                                )}
+                                )} */}
                               </div>
 
                               <Button
