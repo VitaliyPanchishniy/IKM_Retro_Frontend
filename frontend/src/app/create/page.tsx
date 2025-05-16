@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import API from '../../../lib/api';
+import Header from "@/components/Header"
 
 export default function CreatePage() {
   const router = useRouter()
@@ -101,48 +102,8 @@ export default function CreatePage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
+      <Header />
       <div className="max-w-3xl mx-auto p-4">
-        <header className="flex items-center justify-between py-4">
-          <Link href="/" className="flex items-center gap-1">
-            <span className="text-xl font-bold text-indigo-700">
-              Retro<span className="text-purple-600">IKM</span>
-            </span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </Button>
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                />
-              </svg>
-            </Button>
-          </div>
-        </header>
 
         <main className="bg-white rounded-lg shadow-sm p-8 mt-8">
           <h1 className="text-2xl font-bold mb-8">Start a New Retro</h1>

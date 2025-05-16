@@ -17,6 +17,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Search, Plus, MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react"
 import axios from "axios";
 import API from '../../../lib/api';
+import Header from "@/components/Header"
 
 // Типы для ретроспектив
 interface Retrospective {
@@ -53,9 +54,9 @@ export default function DashboardPage() {
   
     const fetchData = async () => {
       try {
-        // Получаем пользователя
-        const userResponse = await API.get('/api/account/self')
-        setUser(userResponse.data)
+        // // Получаем пользователя
+        // const userResponse = await API.get('/api/account/self')
+        // setUser(userResponse.data)
   
         // Получаем ретроспективы
         const retrosResponse = await API.get('/api/Retrospective')
@@ -142,28 +143,28 @@ export default function DashboardPage() {
     return name.charAt(0).toUpperCase()
   }
 
-  const getAvatarColor = (name: string) => {
-    const colors = [
-      "bg-purple-100 text-purple-700",
-      "bg-blue-100 text-blue-700",
-      "bg-green-100 text-green-700",
-      "bg-yellow-100 text-yellow-700",
-      "bg-red-100 text-red-700",
-    ]
-    const index = name.charCodeAt(0) % colors.length
-    return colors[index]
-  }
+  // const getAvatarColor = (name: string) => {
+  //   const colors = [
+  //     "bg-purple-100 text-purple-700",
+  //     "bg-blue-100 text-blue-700",
+  //     "bg-green-100 text-green-700",
+  //     "bg-yellow-100 text-yellow-700",
+  //     "bg-red-100 text-red-700",
+  //   ]
+  //   const index = name.charCodeAt(0) % colors.length
+  //   return colors[index]
+  // }
 
-  const handleLogout = async () => {
-    try {
-        await API.post('/api/account/logout');
-        // После успешного выхода перенаправляем на страницу входа
-        localStorage.clear();
-        router.push('/login');
-    } catch (error) {
-        console.error('Ошибка при выходе:', error);
-    }
-  };
+  // const handleLogout = async () => {
+  //   try {
+  //       await API.post('/api/account/logout');
+  //       // После успешного выхода перенаправляем на страницу входа
+  //       localStorage.clear();
+  //       router.push('/login');
+  //   } catch (error) {
+  //       console.error('Ошибка при выходе:', error);
+  //   }
+  // };
 
   const handleDelete = async (id: string) => {
     const confirmed = confirm("Are you sure you want to delete this retrospective?");
@@ -193,81 +194,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <header className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center">
-              <Link href="/" className="flex items-center gap-1">
-                <span className="text-xl font-bold text-indigo-700">
-                  Retro<span className="text-purple-600">IKM</span>
-                </span>
-              </Link>
-              <nav className="ml-10 flex space-x-4">
-                <Link
-                  href="/dashboard"
-                  className="px-3 py-2 text-sm font-medium text-purple-600 border-b-2 border-purple-600"
-                >
-                  Dashboard
-                </Link>
-                <Link href="/templates" className="px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">
-                  Templates
-                </Link>
-                <Link href="/teams" className="px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">
-                  Teams
-                </Link>
-              </nav>
-            </div>
-            <div className="flex items-center">
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                  />
-                </svg>
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-full ml-2">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-purple-100 text-purple-700">
-                        {user?.userName?.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <div className="flex items-center justify-start gap-2 p-2">
-                    <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium">{user?.userName}</p>
-                      <p className="text-sm text-muted-foreground">{user?.email}</p>
-                    </div>
-                  </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings">Account Settings</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/help">Help & Support</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout}>
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 sm:px-0">

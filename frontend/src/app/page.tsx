@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { AuthStatus } from "@/components/auth-status"
+import Header from "@/components/Header"
 
 export default function Home() {
   const router = useRouter()
@@ -33,26 +34,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
-      <header className="border-b py-4">
-        <div className="container mx-auto flex items-center justify-between px-4 md:px-6">
-          <Link href="/" className="flex items-center gap-1">
-            <span className="text-xl font-bold text-indigo-700">
-              Retro<span className="text-purple-600">IKM</span>
-            </span>
-          </Link>
-          <nav className="flex items-center gap-6">
-            <Link href="/about" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-              About
-            </Link>
-            <Link href="/pricing" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-              Pricing
-            </Link>
-            <div className="flex items-center">
-              <AuthStatus />
-            </div>
-          </nav>
-        </div>
-      </header>
+      <Header />
 
       <main className="flex-1">
         <section className="py-16 md:py-24">
