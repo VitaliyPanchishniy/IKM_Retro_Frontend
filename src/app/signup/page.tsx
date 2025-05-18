@@ -44,8 +44,11 @@ export default function SignupPage() {
     const newErrors: Record<string, string> = {}
 
     if (!formData.name.trim()) {
-      newErrors.name = "Name is required"
+      newErrors.name = "Name is required";
+    } else if (!/[a-zA-Zа-яА-ЯіІїЇєЄґҐ]/.test(formData.name)) {
+      newErrors.name = "Name must contain at least one letter";
     }
+    
 
     if (!formData.email.trim()) {
       newErrors.email = "Email is required"
@@ -54,9 +57,15 @@ export default function SignupPage() {
     }
 
     if (!formData.password) {
-      newErrors.password = "Password is required"
+      newErrors.password = "Password is required";
     } else if (formData.password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters"
+      newErrors.password = "Password must be at least 8 characters";
+    } else if (!/[A-Z]/.test(formData.password)) {
+      newErrors.password = "Password must contain at least one uppercase letter";
+    } else if (!/\d/.test(formData.password)) {
+      newErrors.password = "Password must contain at least one number";
+    } else if (!/[!@#$%^&*(),.?":{}_|<>]/.test(formData.password)) {
+      newErrors.password = "Password must contain at least one special character";
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -91,7 +100,7 @@ export default function SignupPage() {
         }),
       )
 
-      const response = await axios.post('http://localhost:5014/api/v1/account/register', {
+      const response = await axios.post('http://localhost:5014/api/account/register', {
         email: formData.email,
         password: formData.password,
         userName: formData.name, 

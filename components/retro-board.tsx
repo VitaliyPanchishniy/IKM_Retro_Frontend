@@ -18,6 +18,7 @@ interface RetroItem {
     text: string
     author: string
   }[]
+  userId: string
 }
 
 interface RetroColumn {
@@ -62,13 +63,24 @@ const SortableRetroItem = ({ item, columnId, onVote, onAddComment, currentStep }
   }
 
   return (
-    <Card ref={setNodeRef} style={style} className="mb-3 cursor-move" {...attributes} {...listeners}>
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className={`mb-3 cursor-move relative ${currentStep === 1 && item.userId !== "current-user-id" ? "blur-sm" : ""}`}
+      {...attributes}
+      {...listeners}
+    >
       <CardHeader className="p-3 pb-0 flex flex-row items-start justify-between">
         <div className="text-sm">{item.content}</div>
         <Button variant="ghost" size="icon" className="h-8 w-8">
           <MoreVertical className="h-4 w-4" />
         </Button>
       </CardHeader>
+      {currentStep === 1 && item.userId === "current-user-id" && (
+        <div className="absolute top-1 right-1">
+          <span className="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded-full">Your card</span>
+        </div>
+      )}
       <CardContent className="p-3 pt-1">
         {showComments && item.comments.length > 0 && (
           <div className="mt-2 space-y-2">

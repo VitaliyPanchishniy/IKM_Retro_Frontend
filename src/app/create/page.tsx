@@ -8,16 +8,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { Loader2 } from "lucide-react"
 
 export default function CreatePage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
+  const [isCreating, setIsCreating] = useState(false)
   const [retroName, setRetroName] = useState("")
-  const [teamName, setTeamName] = useState("")
   const [selectedTemplate, setSelectedTemplate] = useState("start-stop-continue")
-  const [anonymousMode, setAnonymousMode] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // Check if user is logged in
   useEffect(() => {
     const storedUser = localStorage.getItem("user")
     if (!storedUser) {
@@ -40,103 +40,122 @@ export default function CreatePage() {
     setIsLoading(false)
   }, [router])
 
+  const handleCreateRetro = async () => {
+    if (!retroName) {
+      setError("Retrospective name is required")
+      return
+    }
+
+    setIsCreating(true)
+    setError(null)
+
+    try {
+      const templateMap = {
+        "start-stop-continue": 1,
+        "glad-sad-mad": 2,
+        "start-stop-continue-change": 3,
+        "keep-stop-less-more-start": 4,
+      } as const
+
+      const selectedTemplateType = templateMap[selectedTemplate as keyof typeof templateMap]
+
+      const response = await fetch("/api/Retrospective", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+        },
+        body: JSON.stringify({
+          title: retroName,
+          templateType: selectedTemplateType,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to create retrospective.")
+      }
+
+      router.push("/dashboard")
+    } catch (error: any) {
+      setError(error.message || "Unknown error")
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="text-center">
-          <h2 className="text-xl font-medium mb-2">Loading...</h2>
+          <h2 className="text-xl font-semibold">Loading...</h2>
           <p className="text-gray-500">Please wait while we prepare your retrospective.</p>
         </div>
       </div>
     )
   }
 
-  const handleCreateRetro = () => {
-    if (!retroName) return
+  const getTemplatePreview = () => {
+    const box = (emoji: string, label: string, color: string) => (
+      <div className={`rounded-lg border p-4 text-center ${color}`}>
+        <div className="text-xl">{emoji}</div>
+        <div className="font-medium mt-1">{label}</div>
+      </div>
+    )
 
-    // Create a new retrospective object
-    const newRetro = {
-      id: `retro-${Date.now()}`,
-      name: retroName,
-      template: selectedTemplate,
-      createdAt: new Date().toISOString(),
-      participants: 0,
-      status: "active" as const,
+    switch (selectedTemplate) {
+      case "start-stop-continue":
+        return (
+          <>
+            {box("🟢", "Start", "bg-green-50 border-green-200 text-green-700")}
+            {box("⛔️", "Stop", "bg-red-50 border-red-200 text-red-700")}
+            {box("🔄", "Continue", "bg-blue-50 border-blue-200 text-blue-700")}
+          </>
+        )
+      case "glad-sad-mad":
+        return (
+          <>
+            {box("😀", "Glad", "bg-green-50 border-green-200 text-green-700")}
+            {box("😢", "Sad", "bg-blue-50 border-blue-200 text-blue-700")}
+            {box("😡", "Mad", "bg-red-50 border-red-200 text-red-700")}
+          </>
+        )
+      case "start-stop-continue-change":
+        return (
+          <>
+            {box("🟢", "Start", "bg-green-50 border-green-200 text-green-700")}
+            {box("⛔️", "Stop", "bg-red-50 border-red-200 text-red-700")}
+            {box("🔄", "Continue", "bg-blue-50 border-blue-200 text-blue-700")}
+            {box("🔧", "Change", "bg-yellow-50 border-yellow-200 text-yellow-700")}
+          </>
+        )
+      case "keep-stop-less-more-start":
+        return (
+          <>
+            {box("✔️", "Keep Doing", "bg-green-50 border-green-200 text-green-700")}
+            {box("⛔️", "Stop Doing", "bg-red-50 border-red-200 text-red-700")}
+            {box("➖", "Less Of", "bg-yellow-50 border-yellow-200 text-yellow-700")}
+            {box("➕", "More Of", "bg-blue-50 border-blue-200 text-blue-700")}
+            {box("✅", "Start Doing", "bg-purple-50 border-purple-200 text-purple-700")}
+          </>
+        )
     }
-
-    // Save to localStorage
-    const storedUser = localStorage.getItem("user")
-    if (storedUser) {
-      try {
-        const userData = JSON.parse(storedUser)
-        const storedRetros = localStorage.getItem(`retros_${userData.email}`)
-        let retros = []
-
-        if (storedRetros) {
-          retros = JSON.parse(storedRetros)
-        }
-
-        retros.push(newRetro)
-        localStorage.setItem(`retros_${userData.email}`, JSON.stringify(retros))
-      } catch (e) {
-        console.error("Error saving retrospective:", e)
-      }
-    }
-
-    // Navigate to the retrospective page
-    router.push(`/retrospective?name=${encodeURIComponent(retroName)}&template=${encodeURIComponent(selectedTemplate)}`)
   }
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="max-w-3xl mx-auto p-4">
-        <header className="flex items-center justify-between py-4">
-          <Link href="/" className="flex items-center gap-1">
-            <span className="text-xl font-bold text-indigo-700">
-              Retro<span className="text-purple-600">IKM</span>
-            </span>
+      <div className="max-w-3xl mx-auto px-4 py-8">
+        <header className="flex justify-between items-center py-4">
+          <Link href="/" className="text-2xl font-bold text-indigo-700">
+            Retro<span className="text-purple-600">IKM</span>
           </Link>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </Button>
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                />
-              </svg>
-            </Button>
-          </div>
         </header>
 
-        <main className="bg-white rounded-lg shadow-sm p-8 mt-8">
-          <h1 className="text-2xl font-bold mb-8">Start a New Retro</h1>
+        <main className="bg-white rounded-xl shadow p-6 mt-6">
+          <h1 className="text-2xl font-bold mb-6">Start a New Retro</h1>
 
-          <div className="space-y-6">
-            <div className="space-y-2">
+          <div className="space-y-4">
+            <div>
               <Label htmlFor="retro-name">Retro Name</Label>
               <Input
                 id="retro-name"
@@ -146,114 +165,46 @@ export default function CreatePage() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="team-name">Team Name (Optional)</Label>
-              <Input
-                id="team-name"
-                placeholder="e.g. Product Team"
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
+            <div>
               <Label htmlFor="template">Choose Template</Label>
               <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a template" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="start-stop-continue">Start/Stop/Continue</SelectItem>
-                  <SelectItem value="glad-sad-mad">Glad/Sad/Mad</SelectItem>
-                  <SelectItem value="start-stop-continue-change">Start/Stop/Continue/Change</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
+                  <SelectItem value="start-stop-continue">🟢 Start / ⛔️ Stop / 🔄 Continue</SelectItem>
+                  <SelectItem value="glad-sad-mad">😀 Glad / 😢 Sad / 😡 Mad</SelectItem>
+                  <SelectItem value="start-stop-continue-change">
+                    🟢 Start / ⛔️ Stop / 🔄 Continue / 🔧 Change
+                  </SelectItem>
+                  <SelectItem value="keep-stop-less-more-start">
+                    ✔️ Keep / ⛔️ Stop / ➖ Less / ➕ More / ✅ Start
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div>
               <Label>Template Preview</Label>
-              <div className="grid grid-cols-3 gap-4 mt-2">
-                {selectedTemplate === "start-stop-continue" && (
-                  <>
-                    <div className="bg-green-50 border border-green-200 rounded-md p-3 text-center">
-                      <div className="text-green-600 font-medium">Start</div>
-                    </div>
-                    <div className="bg-red-50 border border-red-200 rounded-md p-3 text-center">
-                      <div className="text-red-600 font-medium">Stop</div>
-                    </div>
-                    <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-center">
-                      <div className="text-blue-600 font-medium">Continue</div>
-                    </div>
-                  </>
-                )}
-
-                {selectedTemplate === "glad-sad-mad" && (
-                  <>
-                    <div className="bg-green-50 border border-green-200 rounded-md p-3 text-center">
-                      <div className="text-green-600 font-medium">Glad</div>
-                    </div>
-                    <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-center">
-                      <div className="text-blue-600 font-medium">Sad</div>
-                    </div>
-                    <div className="bg-red-50 border border-red-200 rounded-md p-3 text-center">
-                      <div className="text-red-600 font-medium">Mad</div>
-                    </div>
-                  </>
-                )}
-
-                {selectedTemplate === "start-stop-continue-change" && (
-                  <>
-                    <div className="bg-green-50 border border-green-200 rounded-md p-3 text-center">
-                      <div className="text-green-600 font-medium">Start</div>
-                    </div>
-                    <div className="bg-red-50 border border-red-200 rounded-md p-3 text-center">
-                      <div className="text-red-600 font-medium">Stop</div>
-                    </div>
-                    <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-center">
-                      <div className="text-blue-600 font-medium">Continue</div>
-                    </div>
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 text-center col-span-3">
-                      <div className="text-yellow-600 font-medium">Change</div>
-                    </div>
-                  </>
-                )}
-
-                {selectedTemplate === "custom" && (
-                  <>
-                    <div className="bg-gray-50 border border-gray-200 rounded-md p-3 text-center">
-                      <div className="text-gray-600 font-medium">Custom Column 1</div>
-                    </div>
-                    <div className="bg-gray-50 border border-gray-200 rounded-md p-3 text-center">
-                      <div className="text-gray-600 font-medium">Custom Column 2</div>
-                    </div>
-                    <div className="bg-gray-50 border border-gray-200 rounded-md p-3 text-center">
-                      <div className="text-gray-600 font-medium">Custom Column 3</div>
-                    </div>
-                  </>
-                )}
+              <div className={`grid gap-4 mt-3 ${
+                selectedTemplate === "keep-stop-less-more-start"
+                  ? "grid-cols-2 md:grid-cols-3"
+                  : selectedTemplate === "start-stop-continue-change"
+                  ? "grid-cols-2 md:grid-cols-4"
+                  : "grid-cols-1 md:grid-cols-3"
+              }`}>
+                {getTemplatePreview()}
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="anonymous-mode">Enable Anonymous Mode</Label>
-                <p className="text-sm text-gray-500">Participants' names will be hidden</p>
-              </div>
-              <Switch id="anonymous-mode" checked={anonymousMode} onCheckedChange={setAnonymousMode} />
-            </div>
+            {error && <p className="text-red-500 text-sm">{error}</p>}
 
-            <Button
-              className="w-full bg-purple-600 hover:bg-purple-700 mt-4"
-              onClick={handleCreateRetro}
-              disabled={!retroName}
-            >
-              Create Board
+            <Button onClick={handleCreateRetro} disabled={isCreating}>
+              {isCreating && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
+              Create Retrospective
             </Button>
           </div>
         </main>
-
-        <footer className="text-center text-sm text-gray-500 py-4 mt-4">© 2023 RetroIKM. All rights reserved.</footer>
       </div>
     </div>
   )

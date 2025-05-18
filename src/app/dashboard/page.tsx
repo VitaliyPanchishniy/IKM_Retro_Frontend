@@ -13,118 +13,97 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Search, Plus, MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react"
-
-// Типы для ретроспектив
-interface Retrospective {
-  id: string
-  name: string
-  template: string
-  createdAt: string
-  participants: number
-  status: "active" | "completed" | "archived"
-  users?: string[]
-}
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Search, Plus, MoreHorizontal, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
+import { retrospectiveApi, type RetrospectiveResponse, TemplateType } from "@/lib/api-service"
 
 export default function DashboardPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
+  const [isDeleting, setIsDeleting] = useState<string | null>(null)
   const [user, setUser] = useState<any>(null)
-  const [retrospectives, setRetrospectives] = useState<Retrospective[]>([])
+  const [retrospectives, setRetrospectives] = useState<RetrospectiveResponse[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("created")
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedTemplate, setSelectedTemplate] = useState("All Templates")
+  const [error, setError] = useState<string | null>(null)
 
-  // Проверка авторизации
+  // Check authentication and load retrospectives
   useEffect(() => {
-    const storedUser = localStorage.getItem("user")
-    if (!storedUser) {
-      router.push("/login?redirect=/dashboard")
-      return
-    }
-
-    try {
-      const userData = JSON.parse(storedUser)
-      if (!userData.isLoggedIn) {
+    const checkAuthAndLoadData = async () => {
+      const storedUser = localStorage.getItem("user")
+      if (!storedUser) {
         router.push("/login?redirect=/dashboard")
         return
       }
-      setUser(userData)
 
-      // Загрузка ретроспектив пользователя
-      const storedRetros = localStorage.getItem(`retros_${userData.email}`)
-      if (storedRetros) {
-        setRetrospectives(JSON.parse(storedRetros))
-      } else {
-        // Если у пользователя нет ретроспектив, создаем демо-данные
-        const demoRetros: Retrospective[] = [
-          {
-            id: "retro-1",
-            name: "Q1 Product Team Retro",
-            template: "mad-sad-glad",
-            createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-            participants: 5,
-            status: "active",
-            users: ["John", "Sarah", "Mike"],
-          },
-          {
-            id: "retro-2",
-            name: "Sprint 23 Retrospective",
-            template: "start-stop-continue",
-            createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-            participants: 8,
-            status: "archived",
-            users: ["Alex", "Emma"],
-          },
-          {
-            id: "retro-3",
-            name: "Design Team Weekly",
-            template: "mad-sad-glad",
-            createdAt: new Date().toISOString(),
-            participants: 3,
-            status: "active",
-            users: ["Lisa", "David", "Anna", "Mark"],
-          },
-        ]
-        setRetrospectives(demoRetros)
-        localStorage.setItem(`retros_${userData.email}`, JSON.stringify(demoRetros))
+      try {
+        const userData = JSON.parse(storedUser)
+        if (!userData.isLoggedIn) {
+          router.push("/login?redirect=/dashboard")
+          return
+        }
+        setUser(userData)
+
+        // Load retrospectives from API
+        try {
+          const retros = await retrospectiveApi.getAllRetrospectives()
+          setRetrospectives(retros)
+        } catch (apiError) {
+          console.error("Error loading retrospectives:", apiError)
+          setError("Failed to load retrospectives. Please try again later.")
+        }
+
+        setIsLoading(false)
+      } catch (e) {
+        console.error("Error parsing user data:", e)
+        router.push("/login?redirect=/dashboard")
       }
-    } catch (e) {
-      console.error("Error parsing user data:", e)
-      router.push("/login?redirect=/dashboard")
-      return
     }
 
-    setIsLoading(false)
+    checkAuthAndLoadData()
   }, [router])
 
   const handleCreateRetro = () => {
     router.push("/create")
   }
 
-  const handleDeleteRetro = (id: string) => {
-    const updatedRetros = retrospectives.filter((retro) => retro.id !== id)
-    setRetrospectives(updatedRetros)
-
-    if (user) {
-      localStorage.setItem(`retros_${user.email}`, JSON.stringify(updatedRetros))
+  const handleDeleteRetro = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this retrospective?")) {
+      setIsDeleting(id)
+      try {
+        await retrospectiveApi.deleteRetrospective(id)
+        setRetrospectives(retrospectives.filter((item) => item.retrospective.id !== id))
+      } catch (error) {
+        console.error("Error deleting retrospective:", error)
+        setError("Failed to delete retrospective. Please try again.")
+      } finally {
+        setIsDeleting(null)
+      }
     }
   }
 
-  const handleOpenRetro = (retro: Retrospective) => {
-    router.push(`/retrospective?name=${encodeURIComponent(retro.name)}&template=${encodeURIComponent(retro.template)}`)
+  const handleOpenRetro = (retro: RetrospectiveResponse) => {
+    const templateName = retrospectiveApi.getTemplateNameByType(retro.retrospective.template)
+    router.push(
+      `/retrospective?id=${retro.retrospective.id}&name=${encodeURIComponent(retro.retrospective.title)}&template=${encodeURIComponent(templateName)}`,
+    )
   }
 
   const filteredRetros = retrospectives.filter((retro) => {
-    const matchesSearch = retro.name.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesSearch = retro.retrospective.title.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesTemplate =
-      selectedTemplate === "All Templates" || retro.template === selectedTemplate.toLowerCase().replace(/\//g, "-")
+      selectedTemplate === "All Templates" || getTemplateLabel(retro.retrospective.template).includes(selectedTemplate)
+
+    // Updated logic for tab filtering
+    const isCreatedByUser = retro.retrospective.creatorUserId === user?.id
+    const isArchived = !retro.retrospective.isActive
+
     const matchesTab =
-      activeTab === "created" ||
-      (activeTab === "joined" && false) || // В будущем здесь будет логика для присоединенных ретро
-      (activeTab === "archived" && retro.status === "archived")
+      (activeTab === "created" && isCreatedByUser && !isArchived) ||
+      (activeTab === "joined" && !isCreatedByUser && !isArchived) ||
+      (activeTab === "archived" && isArchived)
 
     return matchesSearch && matchesTemplate && matchesTab
   })
@@ -138,28 +117,38 @@ export default function DashboardPage() {
     }).format(date)}`
   }
 
-  const getTemplateLabel = (template: string) => {
+  const getTemplateLabel = (template: TemplateType) => {
     switch (template) {
-      case "mad-sad-glad":
-        return "Mad/Sad/Glad"
-      case "start-stop-continue":
-        return "Start/Stop/Continue"
-      case "start-stop-continue-change":
-        return "Start/Stop/Continue/Change"
+      case TemplateType.StartStopContinue:
+        return "🟢 Start / ⛔️ Stop / 🔄 Continue"
+      case TemplateType.GladSadMad:
+        return "😀 Glad / 😢 Sad / 😡 Mad"
+      case TemplateType.StartStopContinueChange:
+        return "🟢 Start / ⛔️ Stop / 🔄 Continue / 🔧 Change"
+      case TemplateType.KeepStopLessMoreStart:
+        return "✔️ Keep / ⛔️ Stop / ➖ Less / ➕ More / ✅ Start"
       default:
-        return template
+        return "Custom Template"
     }
   }
 
-  const getStatusClass = (status: string) => {
-    switch (status) {
-      case "active":
+  const getTemplateColorClass = (template: TemplateType) => {
+    switch (template) {
+      case TemplateType.StartStopContinue:
         return "bg-green-100 text-green-800"
-      case "archived":
-        return "bg-gray-100 text-gray-800"
-      default:
+      case TemplateType.GladSadMad:
         return "bg-blue-100 text-blue-800"
+      case TemplateType.StartStopContinueChange:
+        return "bg-yellow-100 text-yellow-800"
+      case TemplateType.KeepStopLessMoreStart:
+        return "bg-purple-100 text-purple-800"
+      default:
+        return "bg-gray-100 text-gray-800"
     }
+  }
+
+  const getStatusClass = (isActive: boolean) => {
+    return isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
   }
 
   const getAvatarInitial = (name: string) => {
@@ -182,6 +171,7 @@ export default function DashboardPage() {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-purple-600" />
           <h2 className="text-xl font-medium mb-2">Loading...</h2>
           <p className="text-gray-500">Please wait while we load your retrospectives.</p>
         </div>
@@ -279,6 +269,15 @@ export default function DashboardPage() {
             </Button>
           </div>
 
+          {error && (
+            <div className="bg-red-50 p-4 rounded-md text-red-500 mb-6">
+              {error}
+              <Button variant="link" className="p-0 h-auto text-red-600 ml-2" onClick={() => setError(null)}>
+                Dismiss
+              </Button>
+            </div>
+          )}
+
           <div className="bg-white shadow rounded-lg overflow-hidden">
             <div className="p-4 border-b">
               <div className="flex flex-col sm:flex-row justify-between gap-4">
@@ -299,8 +298,10 @@ export default function DashboardPage() {
                     onChange={(e) => setSelectedTemplate(e.target.value)}
                   >
                     <option>All Templates</option>
-                    <option>Mad/Sad/Glad</option>
-                    <option>Start/Stop/Continue</option>
+                    <option>🟢 Start / ⛔️ Stop / 🔄 Continue</option>
+                    <option>😀 Glad / 😢 Sad / 😡 Mad</option>
+                    <option>🟢 Start / ⛔️ Stop / 🔄 Continue / 🔧 Change</option>
+                    <option>✔️ Keep / ⛔️ Stop / ➖ Less / ➕ More / ✅ Start</option>
                   </select>
                 </div>
               </div>
@@ -341,50 +342,79 @@ export default function DashboardPage() {
                     </div>
                   ) : (
                     filteredRetros.map((retro) => (
-                      <div key={retro.id} className="p-4 hover:bg-gray-50">
+                      <div key={retro.retrospective.id} className="p-4 hover:bg-gray-50">
                         <div className="flex flex-col sm:flex-row justify-between">
                           <div className="flex-1">
                             <div className="flex justify-between">
-                              <h3 className="font-medium text-gray-900">{retro.name}</h3>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
+                              <h3 className="font-medium text-gray-900">{retro.retrospective.title}</h3>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handleOpenRetro(retro)}>
+                                    Open Retrospective
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem>Share</DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-red-600"
+                                    onClick={() => handleDeleteRetro(retro.retrospective.id)}
+                                    disabled={isDeleting === retro.retrospective.id}
+                                  >
+                                    {isDeleting === retro.retrospective.id ? (
+                                      <>
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                        Deleting...
+                                      </>
+                                    ) : (
+                                      "Delete"
+                                    )}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
-                            <div className="mt-1 text-sm text-gray-500">{formatDate(retro.createdAt)}</div>
+                            <div className="mt-1 text-sm text-gray-500">
+                              {formatDate(retro.retrospective.createdAt)}
+                            </div>
 
                             <div className="mt-3 flex flex-wrap items-center gap-2">
                               <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  retro.template === "mad-sad-glad"
-                                    ? "bg-purple-100 text-purple-800"
-                                    : "bg-blue-100 text-blue-800"
-                                }`}
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTemplateColorClass(
+                                  retro.retrospective.template,
+                                )}`}
                               >
-                                {getTemplateLabel(retro.template)}
+                                {getTemplateLabel(retro.retrospective.template)}
                               </span>
 
                               <span
                                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(
-                                  retro.status,
+                                  retro.retrospective.isActive,
                                 )}`}
                               >
-                                {retro.status.charAt(0).toUpperCase() + retro.status.slice(1)}
+                                {retro.retrospective.isActive ? "Active" : "Archived"}
                               </span>
                             </div>
 
                             <div className="mt-3 flex items-center justify-between">
                               <div className="flex -space-x-2">
-                                {retro.users &&
-                                  retro.users.slice(0, 4).map((user, index) => (
+                                {retro.retrospective.assignedUsers &&
+                                  retro.retrospective.assignedUsers.slice(0, 4).map((user, index) => (
                                     <Avatar key={index} className="h-7 w-7 border-2 border-white">
-                                      <AvatarFallback className={getAvatarColor(user)}>
-                                        {getAvatarInitial(user)}
-                                      </AvatarFallback>
+                                      {user.avatarUrl ? (
+                                        <AvatarImage src={user.avatarUrl || "/placeholder.svg"} alt={user.userName} />
+                                      ) : (
+                                        <AvatarFallback className={getAvatarColor(user.userName)}>
+                                          {getAvatarInitial(user.userName)}
+                                        </AvatarFallback>
+                                      )}
                                     </Avatar>
                                   ))}
-                                {retro.users && retro.users.length > 4 && (
+                                {retro.retrospective.assignedUsers && retro.retrospective.assignedUsers.length > 4 && (
                                   <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-xs font-medium">
-                                    +{retro.users.length - 4}
+                                    +{retro.retrospective.assignedUsers.length - 4}
                                   </div>
                                 )}
                               </div>
@@ -395,7 +425,7 @@ export default function DashboardPage() {
                                 className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                                 onClick={() => handleOpenRetro(retro)}
                               >
-                                {retro.status === "archived" ? "View Archive →" : "Open Board →"}
+                                {!retro.retrospective.isActive ? "View Archive →" : "Open Board →"}
                               </Button>
                             </div>
                           </div>
@@ -407,12 +437,93 @@ export default function DashboardPage() {
               </TabsContent>
 
               <TabsContent value="joined" className="p-0">
-                <div className="py-12 text-center">
-                  <p className="text-gray-500">No joined retrospectives found</p>
-                  <p className="text-sm text-gray-400 mt-2">Retrospectives you join will appear here</p>
-                </div>
-              </TabsContent>
+                {filteredRetros.length === 0 ? (
+                  <div className="py-12 text-center">
+                    <p className="text-gray-500">No joined retrospectives found</p>
+                    <p className="text-sm text-gray-400 mt-2">Retrospectives you join will appear here</p>
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                      {filteredRetros.map((retro) => (
+                        <div key={retro.retrospective.id} className="p-4 hover:bg-gray-50">
+                          <div className="flex flex-col sm:flex-row justify-between">
+                            <div className="flex-1">
+                              <div className="flex justify-between">
+                                <h3 className="font-medium text-gray-900">{retro.retrospective.title}</h3>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleOpenRetro(retro)}>
+                                      Open Retrospective
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem>Share</DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                              <div className="mt-1 text-sm text-gray-500">
+                                {formatDate(retro.retrospective.createdAt)}
+                              </div>
 
+                              <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <span
+                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTemplateColorClass(
+                                    retro.retrospective.template,
+                                  )}`}
+                                >
+                                  {getTemplateLabel(retro.retrospective.template)}
+                                </span>
+
+                                <span
+                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(
+                                    retro.retrospective.isActive,
+                                  )}`}
+                                >
+                                  {retro.retrospective.isActive ? "Active" : "Archived"}
+                                </span>
+                              </div>
+
+                              <div className="mt-3 flex items-center justify-between">
+                                <div className="flex -space-x-2">
+                                  {retro.retrospective.assignedUsers &&
+                                    retro.retrospective.assignedUsers.slice(0, 4).map((user, index) => (
+                                      <Avatar key={index} className="h-7 w-7 border-2 border-white">
+                                        {user.avatarUrl ? (
+                                          <AvatarImage src={user.avatarUrl || "/placeholder.svg"} alt={user.userName} />
+                                        ) : (
+                                          <AvatarFallback className={getAvatarColor(user.userName)}>
+                                            {getAvatarInitial(user.userName)}
+                                          </AvatarFallback>
+                                        )}
+                                      </Avatar>
+                                    ))}
+                                  {retro.retrospective.assignedUsers && retro.retrospective.assignedUsers.length > 4 && (
+                                    <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-xs font-medium">
+                                      +{retro.retrospective.assignedUsers.length - 4}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                  onClick={() => handleOpenRetro(retro)}
+                                >
+                                  {!retro.retrospective.isActive ? "View Archive →" : "Open Board →"}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </TabsContent>
+\
               <TabsContent value="archived" className="p-0">
                 {filteredRetros.length === 0 ? (
                   <div className="py-12 text-center">
@@ -421,73 +532,101 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="divide-y">
-                    {filteredRetros.map((retro) => (
-                      <div key={retro.id} className="p-4 hover:bg-gray-50">
-                        <div className="flex flex-col sm:flex-row justify-between">
-                          <div className="flex-1">
-                            <div className="flex justify-between">
-                              <h3 className="font-medium text-gray-900">{retro.name}</h3>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </div>
-                            <div className="mt-1 text-sm text-gray-500">{formatDate(retro.createdAt)}</div>
-
-                            <div className="mt-3 flex flex-wrap items-center gap-2">
-                              <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  retro.template === "mad-sad-glad"
-                                    ? "bg-purple-100 text-purple-800"
-                                    : "bg-blue-100 text-blue-800"
-                                }`}
-                              >
-                                {getTemplateLabel(retro.template)}
-                              </span>
-
-                              <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(
-                                  retro.status,
-                                )}`}
-                              >
-                                {retro.status.charAt(0).toUpperCase() + retro.status.slice(1)}
-                              </span>
-                            </div>
-
-                            <div className="mt-3 flex items-center justify-between">
-                              <div className="flex -space-x-2">
-                                {retro.users &&
-                                  retro.users.slice(0, 4).map((user, index) => (
-                                    <Avatar key={index} className="h-7 w-7 border-2 border-white">
-                                      <AvatarFallback className={getAvatarColor(user)}>
-                                        {getAvatarInitial(user)}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                  ))}
-                                {retro.users && retro.users.length > 4 && (
-                                  <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-xs font-medium">
-                                    +{retro.users.length - 4}
-                                  </div>
-                                )}
+                      {filteredRetros.map((retro) => (
+                        <div key={retro.retrospective.id} className="p-4 hover:bg-gray-50">
+                          <div className="flex flex-col sm:flex-row justify-between">
+                            <div className="flex-1">
+                              <div className="flex justify-between">
+                                <h3 className="font-medium text-gray-900">{retro.retrospective.title}</h3>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleOpenRetro(retro)}>
+                                      View Archive
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem>Share</DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className="text-red-600"
+                                      onClick={() => handleDeleteRetro(retro.retrospective.id)}
+                                      disabled={isDeleting === retro.retrospective.id}
+                                    >
+                                      {isDeleting === retro.retrospective.id ? (
+                                        <>
+                                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                          Deleting...
+                                        </>
+                                      ) : (
+                                        "Delete"
+                                      )}
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                              <div className="mt-1 text-sm text-gray-500">
+                                {formatDate(retro.retrospective.createdAt)}
                               </div>
 
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                                onClick={() => handleOpenRetro(retro)}
-                              >
-                                View Archive →
-                              </Button>
+                              <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <span
+                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTemplateColorClass(
+                                    retro.retrospective.template,
+                                  )}`}
+                                >
+                                  {getTemplateLabel(retro.retrospective.template)}
+                                </span>
+
+                                <span
+                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(
+                                    retro.retrospective.isActive,
+                                  )}`}
+                                >
+                                  {retro.retrospective.isActive ? "Active" : "Archived"}
+                                </span>
+                              </div>
+
+                              <div className="mt-3 flex items-center justify-between">
+                                <div className="flex -space-x-2">
+                                  {retro.retrospective.assignedUsers &&
+                                    retro.retrospective.assignedUsers.slice(0, 4).map((user, index) => (
+                                      <Avatar key={index} className="h-7 w-7 border-2 border-white">
+                                        {user.avatarUrl ? (
+                                          <AvatarImage src={user.avatarUrl || "/placeholder.svg"} alt={user.userName} />
+                                        ) : (
+                                          <AvatarFallback className={getAvatarColor(user.userName)}>
+                                            {getAvatarInitial(user.userName)}
+                                          </AvatarFallback>
+                                        )}
+                                      </Avatar>
+                                    ))}
+                                  {retro.retrospective.assignedUsers && retro.retrospective.assignedUsers.length > 4 && (
+                                    <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-xs font-medium">
+                                      +{retro.retrospective.assignedUsers.length - 4}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                  onClick={() => handleOpenRetro(retro)}
+                                >
+                                  View Archive →
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 )}
               </TabsContent>
             </Tabs>
-
             {filteredRetros.length > 0 && (
               <div className="px-4 py-3 flex items-center justify-center border-t">
                 <nav className="flex items-center gap-1" aria-label="Pagination">

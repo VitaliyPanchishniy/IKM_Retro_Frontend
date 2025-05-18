@@ -85,7 +85,7 @@ export default function AboutPage() {
         >
           <div className="container px-4 md:px-6">
             <div className="max-w-3xl mx-auto text-center">
-              <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">About RetroIKM</h1>
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">About RetroKM</h1>
               <p className="text-xl text-gray-600 mb-8">
                 We're on a mission to make team retrospectives more effective, engaging, and actionable.
               </p>
@@ -103,17 +103,17 @@ export default function AboutPage() {
             <div className="max-w-3xl mx-auto">
               <h2 className="text-3xl font-bold mb-6">Our Story</h2>
               <p className="text-lg text-gray-700 mb-6">
-                RetroIKM was born out of frustration with existing retrospective tools that were either too complex or
+                RetroKM was born out of frustration with existing retrospective tools that were either too complex or
                 too simplistic. We wanted to create a platform that strikes the perfect balance - powerful enough for
                 experienced teams, yet intuitive for newcomers to agile methodologies.
               </p>
               <p className="text-lg text-gray-700 mb-6">
-                Founded in 2022 by a team of agile enthusiasts, RetroIKM has quickly grown to become a trusted tool for
+                Founded in 2022 by a team of agile enthusiasts, RetroKM has quickly grown to become a trusted tool for
                 teams of all sizes, from startups to enterprise organizations. Our focus has always been on creating a
                 tool that not only facilitates retrospectives but actually makes them enjoyable and productive.
               </p>
               <p className="text-lg text-gray-700">
-                Today, RetroIKM is used by thousands of teams worldwide to improve their processes, foster open
+                Today, RetroKM is used by thousands of teams worldwide to improve their processes, foster open
                 communication, and drive continuous improvement. We're proud to be part of the agile community and
                 remain committed to evolving our platform based on user feedback and emerging best practices.
               </p>
@@ -141,7 +141,7 @@ export default function AboutPage() {
                   <h3 className="text-xl font-semibold mb-3">Ineffective Retrospectives</h3>
                   <p className="text-gray-700">
                     Many teams struggle with retrospectives that don't lead to actionable insights or meaningful change.
-                    RetroIKM provides structured templates and facilitation tools that help teams focus on what matters
+                    RetroKM provides structured templates and facilitation tools that help teams focus on what matters
                     and turn insights into action items.
                   </p>
                 </motion.div>
@@ -168,7 +168,7 @@ export default function AboutPage() {
                 >
                   <h3 className="text-xl font-semibold mb-3">Lack of Follow-Through</h3>
                   <p className="text-gray-700">
-                    Without proper tracking, action items from retrospectives often get lost or forgotten. RetroIKM
+                    Without proper tracking, action items from retrospectives often get lost or forgotten. RetroKM
                     integrates with your existing tools to ensure that insights lead to trackable tasks that can be
                     monitored and completed.
                   </p>
@@ -202,7 +202,7 @@ export default function AboutPage() {
             <div className="max-w-3xl mx-auto text-center mb-12">
               <h2 className="text-3xl font-bold mb-4">Meet Our Team</h2>
               <p className="text-lg text-gray-600">
-                The passionate people behind RetroIKM who are dedicated to improving team collaboration.
+                The passionate people behind RetroKM who are dedicated to improving team collaboration.
               </p>
             </div>
 
@@ -407,7 +407,7 @@ export default function AboutPage() {
           </div>
 
           <div className="mt-8 pt-8 border-t text-center text-sm text-gray-600">
-            <p>© 2023 RetroIKM. All rights reserved.</p>
+            <p>© 2023 RetroKM. All rights reserved.</p>
           </div>
         </div>
       </footer>
