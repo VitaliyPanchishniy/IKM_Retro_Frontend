@@ -6,9 +6,15 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
+import API from '../../../lib/api';
 
 export default function CreatePage() {
   const router = useRouter()
@@ -59,40 +65,19 @@ export default function CreatePage() {
 
       const selectedTemplateType = templateMap[selectedTemplate as keyof typeof templateMap]
 
-      const response = await fetch("/api/Retrospective", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-        },
-        body: JSON.stringify({
-          title: retroName,
-          templateType: selectedTemplateType,
-        }),
+      const response = await API.post('/api/Retrospective', {
+        title: retroName,
+        templateType: selectedTemplateType
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || "Failed to create retrospective.")
-      }
-
+      console.log('Ретроспектива створена!', response.data)
       router.push("/dashboard")
     } catch (error: any) {
+      console.error('Помилка при створенні ретроспективи', retroName, selectedTemplate, error)
       setError(error.message || "Unknown error")
     } finally {
       setIsCreating(false)
     }
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold">Loading...</h2>
-          <p className="text-gray-500">Please wait while we prepare your retrospective.</p>
-        </div>
-      </div>
-    )
   }
 
   const getTemplatePreview = () => {
@@ -140,6 +125,17 @@ export default function CreatePage() {
           </>
         )
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold">Loading...</h2>
+          <p className="text-gray-500">Please wait while we prepare your retrospective.</p>
+        </div>
+      </div>
+    )
   }
 
   return (

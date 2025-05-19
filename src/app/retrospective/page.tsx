@@ -6,7 +6,18 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { PlusCircle, MessageSquare, ThumbsUp, MoreHorizontal, Loader2, Trash2, Share2 } from "lucide-react"
+import {
+  PlusCircle,
+  MessageSquare,
+  ThumbsUp,
+  MoreHorizontal,
+  Loader2,
+  Trash2,
+  Share2,
+  Edit,
+  Check,
+  X,
+} from "lucide-react"
 import {
   retrospectiveApi,
   type Retrospective,
@@ -15,6 +26,8 @@ import {
   type Comment,
   type CreateGroupItemRequest,
   type CreateCommentRequest,
+  type UpdateGroupItemRequest,
+  type MoveGroupItemRequest,
 } from "@/lib/api-service"
 import { ShareDialog } from "@/components/share-dialog"
 import { RetroSteps } from "@/components/retro-steps"
@@ -50,12 +63,81 @@ export default function RetrospectivePage() {
   const [newComments, setNewComments] = useState<Record<number, string>>({})
   const [comments, setComments] = useState<Record<number, Comment[]>>({})
   const [voteCounts, setVoteCounts] = useState<Record<number, number>>({})
+  const [commentCounts, setCommentCounts] = useState<Record<number, number>>({})
   const [error, setError] = useState<string | null>(null)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
   const [remainingVotes, setRemainingVotes] = useState(6)
   const [showActionItems, setShowActionItems] = useState(false)
   const [showVoteLimitAlert, setShowVoteLimitAlert] = useState(false)
+  const [editingItemId, setEditingItemId] = useState<number | null>(null)
+  const [editingContent, setEditingContent] = useState("")
+  const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null)
+
+  // Load and save remaining votes to localStorage
+  useEffect(() => {
+    // Load remaining votes from localStorage
+    const storedVotes = localStorage.getItem(`retro_${retroId}_remaining_votes`)
+    if (storedVotes) {
+      setRemainingVotes(Number.parseInt(storedVotes, 10))
+    }
+  }, [retroId])
+
+  // Save remaining votes to localStorage whenever it changes
+  useEffect(() => {
+    if (retroId) {
+      localStorage.setItem(`retro_${retroId}_remaining_votes`, remainingVotes.toString())
+    }
+  }, [remainingVotes, retroId])
+
+  // Save vote counts to localStorage whenever they change
+  useEffect(() => {
+    if (retroId && Object.keys(voteCounts).length > 0) {
+      localStorage.setItem(`retro_${retroId}_vote_counts`, JSON.stringify(voteCounts))
+    }
+  }, [voteCounts, retroId])
+
+  // Set up periodic refresh of vote counts and comments
+  useEffect(() => {
+    if (retroId && currentStep >= 3) {
+      // Refresh vote counts and comments every 10 seconds
+      const interval = setInterval(async () => {
+        try {
+          // Refresh group items to get updated data
+          const groupItems = await retrospectiveApi.getGroupItems(retroId)
+
+          // Update vote counts for all items
+          const updatedVoteCounts: Record<number, number> = { ...voteCounts }
+          const updatedCommentCounts: Record<number, number> = { ...commentCounts }
+
+          for (const item of groupItems) {
+            try {
+              // Get vote count for this item
+              const voteResponse = await retrospectiveApi.getVotesForGroupItem(item.id)
+              updatedVoteCounts[item.id] = voteResponse.count
+
+              // Get comment count for this item
+              const commentResponse = await retrospectiveApi.getComments(item.id)
+              updatedCommentCounts[item.id] = commentResponse.length
+            } catch (error) {
+              console.error(`Error refreshing data for item ${item.id}:`, error)
+            }
+          }
+
+          setVoteCounts(updatedVoteCounts)
+          setCommentCounts(updatedCommentCounts)
+        } catch (error) {
+          console.error("Error refreshing data:", error)
+        }
+      }, 10000) // 10 seconds
+
+      setRefreshInterval(interval)
+
+      return () => {
+        if (interval) clearInterval(interval)
+      }
+    }
+  }, [retroId, currentStep])
 
   // Check if user is logged in and load retrospective data
   useEffect(() => {
@@ -90,10 +172,34 @@ export default function RetrospectivePage() {
               setColumns(retroColumns)
 
               // Load group items for this retrospective
-              const groupItems = await retrospectiveApi.getGroupItems(retroId)
+              try {
+                const groupItems = await retrospectiveApi.getGroupItems(retroId)
 
-              // Update columns with group items
-              updateColumnsWithGroupItems(retroColumns, groupItems)
+                // Update columns with group items
+                updateColumnsWithGroupItems(retroColumns, groupItems)
+
+                // Load saved vote counts from localStorage
+                const storedVoteCounts = localStorage.getItem(`retro_${retroId}_vote_counts`)
+                if (storedVoteCounts) {
+                  setVoteCounts(JSON.parse(storedVoteCounts))
+                }
+
+                // Initialize comment counts
+                const initialCommentCounts: Record<number, number> = {}
+                for (const item of groupItems) {
+                  try {
+                    const comments = await retrospectiveApi.getComments(item.id)
+                    initialCommentCounts[item.id] = comments.length
+                  } catch (error) {
+                    console.error(`Error loading comments for item ${item.id}:`, error)
+                    initialCommentCounts[item.id] = 0
+                  }
+                }
+                setCommentCounts(initialCommentCounts)
+              } catch (error) {
+                console.error("Error fetching group items:", error)
+                setError("Failed to load group items")
+              }
             } else {
               setError("Retrospective not found")
             }
@@ -128,12 +234,22 @@ export default function RetrospectivePage() {
 
     setColumns(updatedColumns)
 
-    // Initialize vote counts
-    const initialVoteCounts: Record<number, number> = {}
-    groupItems.forEach((item) => {
-      initialVoteCounts[item.id] = 0 // In a real app, this would come from the API
-    })
-    setVoteCounts(initialVoteCounts)
+    // Initialize vote counts if not already loaded from localStorage
+    const storedVoteCounts = localStorage.getItem(`retro_${retroId}_vote_counts`)
+    if (!storedVoteCounts) {
+      const initialVoteCounts: Record<number, number> = {}
+      groupItems.forEach(async (item) => {
+        try {
+          // Get actual vote count from API
+          const voteResponse = await retrospectiveApi.getVotesForGroupItem(item.id)
+          initialVoteCounts[item.id] = voteResponse.count
+        } catch (error) {
+          console.error(`Error getting votes for item ${item.id}:`, error)
+          initialVoteCounts[item.id] = 0
+        }
+      })
+      setVoteCounts(initialVoteCounts)
+    }
   }
 
   // Initialize columns based on template
@@ -217,29 +333,30 @@ export default function RetrospectivePage() {
         { id: "start", groupId: 5, title: "Start Doing", emoji: "✅", description: "New things to try", items: [] },
       ]
     } else {
+      // Default to glad-sad-mad if template is not recognized
       initialColumns = [
         {
-          id: "column1",
+          id: "glad",
           groupId: 1,
-          title: "Custom Column 1",
-          emoji: "📝",
-          description: "Custom description",
+          title: "What Went Well",
+          emoji: "😀",
+          description: "Things that made you happy",
           items: [],
         },
         {
-          id: "column2",
+          id: "sad",
           groupId: 2,
-          title: "Custom Column 2",
-          emoji: "📝",
-          description: "Custom description",
+          title: "What Needs Improvement",
+          emoji: "😢",
+          description: "Things that could be better",
           items: [],
         },
         {
-          id: "column3",
+          id: "mad",
           groupId: 3,
-          title: "Custom Column 3",
-          emoji: "📝",
-          description: "Custom description",
+          title: "Action Items",
+          emoji: "😡",
+          description: "Things that frustrated you",
           items: [],
         },
       ]
@@ -351,29 +468,30 @@ export default function RetrospectivePage() {
         { id: "start", groupId: 0, title: "Start Doing", emoji: "✅", description: "New things to try", items: [] },
       ]
     } else {
+      // Default to glad-sad-mad if template is not recognized
       return [
         {
-          id: "column1",
+          id: "glad",
           groupId: 0,
-          title: "Custom Column 1",
-          emoji: "📝",
-          description: "Custom description",
+          title: "What Went Well",
+          emoji: "😀",
+          description: "Things that made you happy",
           items: [],
         },
         {
-          id: "column2",
+          id: "sad",
           groupId: 0,
-          title: "Custom Column 2",
-          emoji: "📝",
-          description: "Custom description",
+          title: "What Needs Improvement",
+          emoji: "😢",
+          description: "Things that could be better",
           items: [],
         },
         {
-          id: "column3",
+          id: "mad",
           groupId: 0,
-          title: "Custom Column 3",
-          emoji: "📝",
-          description: "Custom description",
+          title: "Action Items",
+          emoji: "😡",
+          description: "Things that frustrated you",
           items: [],
         },
       ]
@@ -405,11 +523,107 @@ export default function RetrospectivePage() {
         [newItem.id]: 0,
       }))
 
+      // Initialize comment count for the new item
+      setCommentCounts((prev) => ({
+        ...prev,
+        [newItem.id]: 0,
+      }))
+
       // Clear the input
       setNewItems((prev) => ({ ...prev, [columnId]: "" }))
     } catch (error) {
       console.error("Error adding item:", error)
       setError("Failed to add item. Please try again.")
+    } finally {
+      setIsSaving(null)
+    }
+  }
+
+  const handleStartEditing = (item: GroupItem) => {
+    setEditingItemId(item.id)
+    setEditingContent(item.content)
+  }
+
+  const handleCancelEditing = () => {
+    setEditingItemId(null)
+    setEditingContent("")
+  }
+
+  const handleSaveEditing = async () => {
+    if (!editingItemId || !editingContent.trim()) {
+      handleCancelEditing()
+      return
+    }
+
+    setIsSaving(editingItemId)
+
+    try {
+      // Update the group item via API
+      const updateItemRequest: UpdateGroupItemRequest = {
+        content: editingContent,
+      }
+
+      await retrospectiveApi.updateGroupItem(editingItemId, updateItemRequest)
+
+      // Update the columns state with the updated item
+      setColumns((prev) =>
+        prev.map((col) => ({
+          ...col,
+          items: col.items.map((item) => (item.id === editingItemId ? { ...item, content: editingContent } : item)),
+        })),
+      )
+
+      // Clear editing state
+      setEditingItemId(null)
+      setEditingContent("")
+    } catch (error) {
+      console.error("Error updating item:", error)
+      setError("Failed to update item. Please try again.")
+    } finally {
+      setIsSaving(null)
+    }
+  }
+
+  const handleMoveItem = async (itemId: number, sourceColumnId: string, targetColumnId: string) => {
+    const sourceColumn = columns.find((col) => col.id === sourceColumnId)
+    const targetColumn = columns.find((col) => col.id === targetColumnId)
+
+    if (!sourceColumn || !targetColumn) return
+
+    const item = sourceColumn.items.find((i) => i.id === itemId)
+    if (!item) return
+
+    setIsSaving(itemId)
+
+    try {
+      // Move the group item via API
+      const moveItemRequest: MoveGroupItemRequest = {
+        newGroupId: targetColumn.groupId,
+        orderPosition: targetColumn.items.length, // Add to the end of the target column
+      }
+
+      await retrospectiveApi.moveGroupItem(itemId, moveItemRequest)
+
+      // Update the columns state by removing the item from the source column and adding it to the target column
+      setColumns((prev) =>
+        prev.map((col) => {
+          if (col.id === sourceColumnId) {
+            return {
+              ...col,
+              items: col.items.filter((i) => i.id !== itemId),
+            }
+          } else if (col.id === targetColumnId) {
+            return {
+              ...col,
+              items: [...col.items, { ...item, groupId: targetColumn.groupId }],
+            }
+          }
+          return col
+        }),
+      )
+    } catch (error) {
+      console.error("Error moving item:", error)
+      setError("Failed to move item. Please try again.")
     } finally {
       setIsSaving(null)
     }
@@ -466,6 +680,12 @@ export default function RetrospectivePage() {
         ...prev,
         [itemId]: itemComments,
       }))
+
+      // Update comment count
+      setCommentCounts((prev) => ({
+        ...prev,
+        [itemId]: itemComments.length,
+      }))
     } catch (error) {
       console.error("Error loading comments:", error)
       setError("Failed to load comments. Please try again.")
@@ -488,9 +708,16 @@ export default function RetrospectivePage() {
       const newComment = await retrospectiveApi.createComment(createCommentRequest)
 
       // Update the comments state with the new comment
+      const updatedComments = [...(comments[itemId] || []), newComment]
       setComments((prev) => ({
         ...prev,
-        [itemId]: [...(prev[itemId] || []), newComment],
+        [itemId]: updatedComments,
+      }))
+
+      // Update comment count
+      setCommentCounts((prev) => ({
+        ...prev,
+        [itemId]: updatedComments.length,
       }))
 
       // Clear the input
@@ -526,6 +753,13 @@ export default function RetrospectivePage() {
         return newCounts
       })
 
+      // Remove the comment count for this item
+      setCommentCounts((prev) => {
+        const newCounts = { ...prev }
+        delete newCounts[itemId]
+        return newCounts
+      })
+
       // Remove any comments for this item
       setComments((prev) => {
         const newComments = { ...prev }
@@ -535,6 +769,27 @@ export default function RetrospectivePage() {
     } catch (error) {
       console.error("Error deleting item:", error)
       setError("Failed to delete item. Please try again.")
+    } finally {
+      setIsSaving(null)
+    }
+  }
+
+  const handleConvertToAction = async (itemId: number, status: number, priority: number, assignedUserId: string) => {
+    setIsSaving(itemId)
+
+    try {
+      // Convert the item to an action via API
+      await retrospectiveApi.convertToAction(itemId, {
+        status,
+        priority,
+        assignedUserId,
+      })
+
+      // You might want to update the UI to reflect that this item is now an action item
+      // This depends on how you want to handle action items in your UI
+    } catch (error) {
+      console.error("Error converting item to action:", error)
+      setError("Failed to convert item to action. Please try again.")
     } finally {
       setIsSaving(null)
     }
@@ -561,8 +816,7 @@ export default function RetrospectivePage() {
 
   // Function to determine if an item should be blurred based on the current step
   const shouldBlurItem = (item: GroupItem) => {
-    // In step 1, blur all items that don't belong to the current user
-    // and don't allow hover to reveal them
+    // In step 1 (reflect), blur all items that don't belong to the current user
     return currentStep === 1 && item.userId !== user?.id
   }
 
@@ -666,7 +920,38 @@ export default function RetrospectivePage() {
                     className={`bg-white border rounded-md shadow-sm ${shouldBlurItem(item) ? "blur-sm" : ""}`}
                   >
                     <div className="p-3 relative">
-                      <div className="text-sm">{item.content}</div>
+                      {editingItemId === item.id ? (
+                        <div className="space-y-2">
+                          <Input
+                            value={editingContent}
+                            onChange={(e) => setEditingContent(e.target.value)}
+                            className="text-sm"
+                            autoFocus
+                          />
+                          <div className="flex justify-end gap-2">
+                            <Button size="sm" variant="outline" className="h-7 px-2" onClick={handleCancelEditing}>
+                              <X className="h-3 w-3 mr-1" />
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-7 px-2 bg-purple-600 hover:bg-purple-700"
+                              onClick={handleSaveEditing}
+                              disabled={isSaving === item.id}
+                            >
+                              {isSaving === item.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                              ) : (
+                                <Check className="h-3 w-3 mr-1" />
+                              )}
+                              Save
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-sm">{item.content}</div>
+                      )}
+
                       {item.userId === user?.id && currentStep === 1 && (
                         <div className="absolute top-1 right-1">
                           <span className="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded-full">
@@ -674,16 +959,30 @@ export default function RetrospectivePage() {
                           </span>
                         </div>
                       )}
+
                       <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
                         <span>{user?.name || "Anonymous"}</span>
                         <div className="flex items-center gap-2">
+                          {currentStep >= 2 && editingItemId !== item.id && (
+                            <button
+                              className="flex items-center gap-1 hover:text-purple-600"
+                              onClick={() => handleStartEditing(item)}
+                            >
+                              <Edit className="h-3 w-3" />
+                            </button>
+                          )}
+
                           {currentStep >= 3 && (
                             <button
                               className="flex items-center gap-1 hover:text-purple-600"
                               onClick={() => toggleComments(item.id)}
                             >
                               <MessageSquare className="h-3 w-3" />
-                              {comments[item.id]?.length > 0 && comments[item.id].length}
+                              {commentCounts[item.id] > 0 && (
+                                <span className="bg-purple-100 text-purple-800 text-xs px-1.5 py-0.5 rounded-full">
+                                  {commentCounts[item.id]}
+                                </span>
+                              )}
                             </button>
                           )}
 
@@ -698,7 +997,11 @@ export default function RetrospectivePage() {
                               ) : (
                                 <ThumbsUp className="h-3 w-3" />
                               )}
-                              {voteCounts[item.id] > 0 && voteCounts[item.id]}
+                              {voteCounts[item.id] > 0 && (
+                                <span className="bg-purple-100 text-purple-800 text-xs px-1.5 py-0.5 rounded-full">
+                                  {voteCounts[item.id]}
+                                </span>
+                              )}
                             </button>
                           )}
 

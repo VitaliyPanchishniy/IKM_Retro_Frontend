@@ -1,7 +1,4 @@
-import { authAxios } from "@/lib/auth"
-
-// Base URL for the retrospective API
-const API_BASE_URL = "http://localhost:5014"
+import API from "@/lib/api"
 
 // Retrospective template types
 export enum TemplateType {
@@ -29,7 +26,6 @@ export interface GroupItem {
   orderPosition: number
   isHidden: boolean
   comments?: Comment[]
-  votes?: number;
 }
 
 // Interface for comment
@@ -42,7 +38,6 @@ export interface Comment {
   content: string
   likes: number
   isAnonymous: boolean
-   userName?: string;
 }
 
 // Interface for creating a comment
@@ -68,6 +63,13 @@ export interface UpdateGroupItemRequest {
 export interface MoveGroupItemRequest {
   newGroupId: number
   orderPosition: number
+}
+
+// Interface for converting a group item to an action item
+export interface ConvertToActionRequest {
+  status: number
+  priority: number
+  assignedUserId: string
 }
 
 // Interface for voting on a group item
@@ -132,7 +134,7 @@ export const retrospectiveApi = {
   // Get all retrospectives
   getAllRetrospectives: async (): Promise<RetrospectiveResponse[]> => {
     try {
-      const response = await authAxios.get(`${API_BASE_URL}/api/Retrospective`)
+      const response = await API.get(`/api/Retrospective`)
       return response.data
     } catch (error) {
       console.error("Error fetching retrospectives:", error)
@@ -143,7 +145,7 @@ export const retrospectiveApi = {
   // Create a new retrospective
   createRetrospective: async (data: CreateRetrospectiveRequest): Promise<Retrospective> => {
     try {
-      const response = await authAxios.post(`${API_BASE_URL}/api/Retrospective`, data)
+      const response = await API.post(`/api/Retrospective`, data)
       return response.data
     } catch (error) {
       console.error("Error creating retrospective:", error)
@@ -154,7 +156,7 @@ export const retrospectiveApi = {
   // Join a retrospective by code
   joinRetrospective: async (code: string): Promise<Retrospective> => {
     try {
-      const response = await authAxios.post(`${API_BASE_URL}/api/Retrospective/join/${code}`)
+      const response = await API.post(`/api/Retrospective/join/${code}`)
       return response.data
     } catch (error) {
       console.error("Error joining retrospective:", error)
@@ -165,7 +167,7 @@ export const retrospectiveApi = {
   // Delete a retrospective
   deleteRetrospective: async (id: string): Promise<void> => {
     try {
-      await authAxios.delete(`${API_BASE_URL}/api/Retrospective/${id}`)
+      await API.delete(`/api/Retrospective/${id}`)
     } catch (error) {
       console.error("Error deleting retrospective:", error)
       throw error
@@ -175,7 +177,7 @@ export const retrospectiveApi = {
   // Get invite details by code
   getInviteByCode: async (code: string): Promise<any> => {
     try {
-      const response = await authAxios.get(`${API_BASE_URL}/api/Invite/${code}`)
+      const response = await API.get(`/api/Invite/${code}`)
       return response.data
     } catch (error) {
       console.error("Error getting invite:", error)
@@ -186,7 +188,7 @@ export const retrospectiveApi = {
   // Create an invite for a retrospective
   createInvite: async (retrospectiveId: string): Promise<any> => {
     try {
-      const response = await authAxios.post(`${API_BASE_URL}/api/Invite/${retrospectiveId}`)
+      const response = await API.post(`/api/Invite/${retrospectiveId}`)
       return response.data
     } catch (error) {
       console.error("Error creating invite:", error)
@@ -197,7 +199,7 @@ export const retrospectiveApi = {
   // Get group items for a retrospective
   getGroupItems: async (retrospectiveId: string): Promise<GroupItem[]> => {
     try {
-      const response = await authAxios.get(`${API_BASE_URL}/api/GroupItem/retrospective/${retrospectiveId}`)
+      const response = await API.get(`/api/GroupItem/retrospective/${retrospectiveId}`)
       return response.data
     } catch (error) {
       console.error("Error fetching group items:", error)
@@ -205,10 +207,21 @@ export const retrospectiveApi = {
     }
   },
 
+  // Get a specific group item by ID
+  getGroupItem: async (id: number): Promise<GroupItem> => {
+    try {
+      const response = await API.get(`/api/GroupItem/${id}`)
+      return response.data
+    } catch (error) {
+      console.error("Error fetching group item:", error)
+      throw error
+    }
+  },
+
   // Create a new group item
   createGroupItem: async (data: CreateGroupItemRequest): Promise<GroupItem> => {
     try {
-      const response = await authAxios.post(`${API_BASE_URL}/api/GroupItem`, data)
+      const response = await API.post(`/api/GroupItem`, data)
       return response.data
     } catch (error) {
       console.error("Error creating group item:", error)
@@ -219,7 +232,7 @@ export const retrospectiveApi = {
   // Update a group item
   updateGroupItem: async (id: number, data: UpdateGroupItemRequest): Promise<GroupItem> => {
     try {
-      const response = await authAxios.patch(`${API_BASE_URL}/api/GroupItem/${id}`, data)
+      const response = await API.patch(`/api/GroupItem/${id}`, data)
       return response.data
     } catch (error) {
       console.error("Error updating group item:", error)
@@ -230,7 +243,7 @@ export const retrospectiveApi = {
   // Delete a group item
   deleteGroupItem: async (id: number): Promise<void> => {
     try {
-      await authAxios.delete(`${API_BASE_URL}/api/GroupItem/${id}`)
+      await API.delete(`/api/GroupItem/${id}`)
     } catch (error) {
       console.error("Error deleting group item:", error)
       throw error
@@ -240,7 +253,7 @@ export const retrospectiveApi = {
   // Move a group item
   moveGroupItem: async (id: number, data: MoveGroupItemRequest): Promise<GroupItem> => {
     try {
-      const response = await authAxios.put(`${API_BASE_URL}/api/GroupItem/${id}/move`, data)
+      const response = await API.put(`/api/GroupItem/${id}/move`, data)
       return response.data
     } catch (error) {
       console.error("Error moving group item:", error)
@@ -248,10 +261,21 @@ export const retrospectiveApi = {
     }
   },
 
+  // Convert a group item to an action item
+  convertToAction: async (id: number, data: ConvertToActionRequest): Promise<any> => {
+    try {
+      const response = await API.post(`/api/GroupItem/${id}/convert-to-action`, data)
+      return response.data
+    } catch (error) {
+      console.error("Error converting group item to action:", error)
+      throw error
+    }
+  },
+
   // Get comments for a group item
   getComments: async (groupItemId: number): Promise<Comment[]> => {
     try {
-      const response = await authAxios.get(`${API_BASE_URL}/api/Comment/group-item/${groupItemId}`)
+      const response = await API.get(`/api/Comment/group-item/${groupItemId}`)
       return response.data
     } catch (error) {
       console.error("Error fetching comments:", error)
@@ -262,7 +286,7 @@ export const retrospectiveApi = {
   // Create a new comment
   createComment: async (data: CreateCommentRequest): Promise<Comment> => {
     try {
-      const response = await authAxios.post(`${API_BASE_URL}/api/Comment`, data)
+      const response = await API.post(`/api/Comment`, data)
       return response.data
     } catch (error) {
       console.error("Error creating comment:", error)
@@ -273,7 +297,7 @@ export const retrospectiveApi = {
   // Delete a comment
   deleteComment: async (id: number): Promise<void> => {
     try {
-      await authAxios.delete(`${API_BASE_URL}/api/Comment/${id}`)
+      await API.delete(`/api/Comment/${id}`)
     } catch (error) {
       console.error("Error deleting comment:", error)
       throw error
@@ -283,7 +307,8 @@ export const retrospectiveApi = {
   // Vote for a group item
   voteForGroupItem: async (groupItemId: number): Promise<VoteCountResponse> => {
     try {
-      const response = await authAxios.post(`${API_BASE_URL}/api/GroupItemVote`, { groupItemId })
+      // Fix: Ensure we're sending the correct payload format
+      const response = await API.post(`/api/GroupItemVote`, { groupItemId: groupItemId })
       return response.data
     } catch (error) {
       console.error("Error voting for group item:", error)
@@ -291,10 +316,21 @@ export const retrospectiveApi = {
     }
   },
 
+  // Get votes for a group item
+  getVotesForGroupItem: async (groupItemId: number): Promise<VoteCountResponse> => {
+    try {
+      const response = await API.get(`/api/GroupItemVote/count/${groupItemId}`)
+      return response.data
+    } catch (error) {
+      console.error("Error getting votes for group item:", error)
+      throw error
+    }
+  },
+
   // Remove a vote
   removeVote: async (voteId: number): Promise<void> => {
     try {
-      await authAxios.delete(`${API_BASE_URL}/api/GroupItemVote/${voteId}`)
+      await API.delete(`/api/GroupItemVote/${voteId}`)
     } catch (error) {
       console.error("Error removing vote:", error)
       throw error

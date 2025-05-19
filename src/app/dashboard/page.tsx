@@ -95,15 +95,10 @@ export default function DashboardPage() {
     const matchesSearch = retro.retrospective.title.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesTemplate =
       selectedTemplate === "All Templates" || getTemplateLabel(retro.retrospective.template).includes(selectedTemplate)
-
-    // Updated logic for tab filtering
-    const isCreatedByUser = retro.retrospective.creatorUserId === user?.id
-    const isArchived = !retro.retrospective.isActive
-
     const matchesTab =
-      (activeTab === "created" && isCreatedByUser && !isArchived) ||
-      (activeTab === "joined" && !isCreatedByUser && !isArchived) ||
-      (activeTab === "archived" && isArchived)
+      activeTab === "created" ||
+      (activeTab === "joined" && retro.retrospective.creatorUserId !== user?.id) ||
+      (activeTab === "archived" && !retro.retrospective.isActive)
 
     return matchesSearch && matchesTemplate && matchesTab
   })
@@ -437,93 +432,12 @@ export default function DashboardPage() {
               </TabsContent>
 
               <TabsContent value="joined" className="p-0">
-                {filteredRetros.length === 0 ? (
-                  <div className="py-12 text-center">
-                    <p className="text-gray-500">No joined retrospectives found</p>
-                    <p className="text-sm text-gray-400 mt-2">Retrospectives you join will appear here</p>
-                  </div>
-                ) : (
-                  <div className="divide-y">
-                      {filteredRetros.map((retro) => (
-                        <div key={retro.retrospective.id} className="p-4 hover:bg-gray-50">
-                          <div className="flex flex-col sm:flex-row justify-between">
-                            <div className="flex-1">
-                              <div className="flex justify-between">
-                                <h3 className="font-medium text-gray-900">{retro.retrospective.title}</h3>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                      <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handleOpenRetro(retro)}>
-                                      Open Retrospective
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem>Share</DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                              <div className="mt-1 text-sm text-gray-500">
-                                {formatDate(retro.retrospective.createdAt)}
-                              </div>
-
-                              <div className="mt-3 flex flex-wrap items-center gap-2">
-                                <span
-                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTemplateColorClass(
-                                    retro.retrospective.template,
-                                  )}`}
-                                >
-                                  {getTemplateLabel(retro.retrospective.template)}
-                                </span>
-
-                                <span
-                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(
-                                    retro.retrospective.isActive,
-                                  )}`}
-                                >
-                                  {retro.retrospective.isActive ? "Active" : "Archived"}
-                                </span>
-                              </div>
-
-                              <div className="mt-3 flex items-center justify-between">
-                                <div className="flex -space-x-2">
-                                  {retro.retrospective.assignedUsers &&
-                                    retro.retrospective.assignedUsers.slice(0, 4).map((user, index) => (
-                                      <Avatar key={index} className="h-7 w-7 border-2 border-white">
-                                        {user.avatarUrl ? (
-                                          <AvatarImage src={user.avatarUrl || "/placeholder.svg"} alt={user.userName} />
-                                        ) : (
-                                          <AvatarFallback className={getAvatarColor(user.userName)}>
-                                            {getAvatarInitial(user.userName)}
-                                          </AvatarFallback>
-                                        )}
-                                      </Avatar>
-                                    ))}
-                                  {retro.retrospective.assignedUsers && retro.retrospective.assignedUsers.length > 4 && (
-                                    <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-xs font-medium">
-                                      +{retro.retrospective.assignedUsers.length - 4}
-                                    </div>
-                                  )}
-                                </div>
-
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                                  onClick={() => handleOpenRetro(retro)}
-                                >
-                                  {!retro.retrospective.isActive ? "View Archive →" : "Open Board →"}
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                )}
+                <div className="py-12 text-center">
+                  <p className="text-gray-500">No joined retrospectives found</p>
+                  <p className="text-sm text-gray-400 mt-2">Retrospectives you join will appear here</p>
+                </div>
               </TabsContent>
-\
+
               <TabsContent value="archived" className="p-0">
                 {filteredRetros.length === 0 ? (
                   <div className="py-12 text-center">
@@ -532,97 +446,97 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="divide-y">
-                      {filteredRetros.map((retro) => (
-                        <div key={retro.retrospective.id} className="p-4 hover:bg-gray-50">
-                          <div className="flex flex-col sm:flex-row justify-between">
-                            <div className="flex-1">
-                              <div className="flex justify-between">
-                                <h3 className="font-medium text-gray-900">{retro.retrospective.title}</h3>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                      <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handleOpenRetro(retro)}>
-                                      View Archive
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem>Share</DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      className="text-red-600"
-                                      onClick={() => handleDeleteRetro(retro.retrospective.id)}
-                                      disabled={isDeleting === retro.retrospective.id}
-                                    >
-                                      {isDeleting === retro.retrospective.id ? (
-                                        <>
-                                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                          Deleting...
-                                        </>
+                    {filteredRetros.map((retro) => (
+                      <div key={retro.retrospective.id} className="p-4 hover:bg-gray-50">
+                        <div className="flex flex-col sm:flex-row justify-between">
+                          <div className="flex-1">
+                            <div className="flex justify-between">
+                              <h3 className="font-medium text-gray-900">{retro.retrospective.title}</h3>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handleOpenRetro(retro)}>
+                                    View Archive
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem>Share</DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-red-600"
+                                    onClick={() => handleDeleteRetro(retro.retrospective.id)}
+                                    disabled={isDeleting === retro.retrospective.id}
+                                  >
+                                    {isDeleting === retro.retrospective.id ? (
+                                      <>
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                        Deleting...
+                                      </>
+                                    ) : (
+                                      "Delete"
+                                    )}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                            <div className="mt-1 text-sm text-gray-500">
+                              {formatDate(retro.retrospective.createdAt)}
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTemplateColorClass(
+                                  retro.retrospective.template,
+                                )}`}
+                              >
+                                {getTemplateLabel(retro.retrospective.template)}
+                              </span>
+
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(
+                                  retro.retrospective.isActive,
+                                )}`}
+                              >
+                                {retro.retrospective.isActive ? "Active" : "Archived"}
+                              </span>
+                            </div>
+
+                            <div className="mt-3 flex items-center justify-between">
+                              <div className="flex -space-x-2">
+                                {retro.retrospective.assignedUsers &&
+                                  retro.retrospective.assignedUsers.slice(0, 4).map((user, index) => (
+                                    <Avatar key={index} className="h-7 w-7 border-2 border-white">
+                                      {user.avatarUrl ? (
+                                        <AvatarImage src={user.avatarUrl || "/placeholder.svg"} alt={user.userName} />
                                       ) : (
-                                        "Delete"
+                                        <AvatarFallback className={getAvatarColor(user.userName)}>
+                                          {getAvatarInitial(user.userName)}
+                                        </AvatarFallback>
                                       )}
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                              <div className="mt-1 text-sm text-gray-500">
-                                {formatDate(retro.retrospective.createdAt)}
-                              </div>
-
-                              <div className="mt-3 flex flex-wrap items-center gap-2">
-                                <span
-                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTemplateColorClass(
-                                    retro.retrospective.template,
-                                  )}`}
-                                >
-                                  {getTemplateLabel(retro.retrospective.template)}
-                                </span>
-
-                                <span
-                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(
-                                    retro.retrospective.isActive,
-                                  )}`}
-                                >
-                                  {retro.retrospective.isActive ? "Active" : "Archived"}
-                                </span>
+                                    </Avatar>
+                                  ))}
+                                {retro.retrospective.assignedUsers && retro.retrospective.assignedUsers.length > 4 && (
+                                  <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-xs font-medium">
+                                    +{retro.retrospective.assignedUsers.length - 4}
+                                  </div>
+                                )}
                               </div>
 
-                              <div className="mt-3 flex items-center justify-between">
-                                <div className="flex -space-x-2">
-                                  {retro.retrospective.assignedUsers &&
-                                    retro.retrospective.assignedUsers.slice(0, 4).map((user, index) => (
-                                      <Avatar key={index} className="h-7 w-7 border-2 border-white">
-                                        {user.avatarUrl ? (
-                                          <AvatarImage src={user.avatarUrl || "/placeholder.svg"} alt={user.userName} />
-                                        ) : (
-                                          <AvatarFallback className={getAvatarColor(user.userName)}>
-                                            {getAvatarInitial(user.userName)}
-                                          </AvatarFallback>
-                                        )}
-                                      </Avatar>
-                                    ))}
-                                  {retro.retrospective.assignedUsers && retro.retrospective.assignedUsers.length > 4 && (
-                                    <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-xs font-medium">
-                                      +{retro.retrospective.assignedUsers.length - 4}
-                                    </div>
-                                  )}
-                                </div>
-
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                                  onClick={() => handleOpenRetro(retro)}
-                                >
-                                  View Archive →
-                                </Button>
-                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                onClick={() => handleOpenRetro(retro)}
+                              >
+                                View Archive →
+                              </Button>
                             </div>
                           </div>
                         </div>
-                      ))}
+                      </div>
+                    ))}
                   </div>
                 )}
               </TabsContent>
