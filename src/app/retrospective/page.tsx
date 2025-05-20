@@ -21,10 +21,21 @@ import {
   X,
   AlertTriangle,
   Clock,
-  UserPlus,
   MoveRight,
-  ThumbsDown,
 } from "lucide-react"
+import {
+  DndContext,
+  DragOverlay,
+  closestCorners,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+  type DragOverEvent,
+} from "@dnd-kit/core"
+import { SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
 import {
   retrospectiveApi,
   type Retrospective,
@@ -100,7 +111,6 @@ export default function RetrospectivePage() {
   const [editingContent, setEditingContent] = useState("")
   const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null)
   const [timerDialogOpen, setTimerDialogOpen] = useState(false)
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
   const [timerDuration, setTimerDuration] = useState(0)
   const [timerRunning, setTimerRunning] = useState(false)
   const [timerEndTime, setTimerEndTime] = useState<Date | null>(null)
@@ -109,6 +119,22 @@ export default function RetrospectivePage() {
   const [convertDialogOpen, setConvertDialogOpen] = useState(false)
   const [convertPriority, setConvertPriority] = useState<string>("1") // Medium priority
   const [convertStatus, setConvertStatus] = useState<string>("0") // Not started
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [activeItem, setActiveItem] = useState<GroupItem | null>(null)
+  const [activeColumnId, setActiveColumnId] = useState<string | null>(null)
+  const [userMap, setUserMap] = useState<Record<string, string>>({}) // Map of user IDs to names
+
+  // Set up DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  )
 
   // Load and save remaining votes to localStorage
   useEffect(() => {
@@ -235,6 +261,12 @@ export default function RetrospectivePage() {
         }
         setUser(userData)
 
+        // Initialize userMap with current user
+        setUserMap((prev) => ({
+          ...prev,
+          [userData.id]: userData.name || "User",
+        }))
+
         // If we have a retrospective ID, load it from the API
         if (retroId) {
           try {
@@ -245,6 +277,15 @@ export default function RetrospectivePage() {
 
             if (foundRetro) {
               setRetrospective(foundRetro.retrospective)
+
+              // Add assigned users to userMap
+              if (foundRetro.retrospective.assignedUsers) {
+                const updatedUserMap = { ...userMap }
+                foundRetro.retrospective.assignedUsers.forEach((user) => {
+                  updatedUserMap[user.id] = user.userName
+                })
+                setUserMap(updatedUserMap)
+              }
 
               // Convert groups to columns
               const retroColumns = mapGroupsToColumns(foundRetro.retrospective.groups, templateType)
@@ -739,7 +780,7 @@ export default function RetrospectivePage() {
     }
   }
 
-  const handleRemoveVotes = async (itemId: number) => {
+  const handleRemoveMyVotes = async (itemId: number) => {
     if (!user?.id) return
 
     setIsRemovingVotes(itemId)
@@ -764,6 +805,38 @@ export default function RetrospectivePage() {
     } catch (error) {
       console.error("Error removing votes:", error)
       setError("Failed to remove votes. Please try again.")
+    } finally {
+      setIsRemovingVotes(null)
+    }
+  }
+
+  const handleRemoveAllVotes = async (itemId: number) => {
+    if (!retrospective || retrospective.creatorUserId !== user?.id) {
+      setError("Only the board owner can remove all votes")
+      return
+    }
+
+    setIsRemovingVotes(itemId)
+
+    try {
+      // Get all votes for this item
+      const votes = await retrospectiveApi.getAllVotesForGroupItem(itemId)
+
+      // Delete each vote
+      for (const vote of votes) {
+        await retrospectiveApi.removeVote(vote.id)
+      }
+
+      // Update the vote count to zero
+      setVoteCounts((prev) => ({
+        ...prev,
+        [itemId]: 0,
+      }))
+
+      // No need to update remaining votes as this is an admin action
+    } catch (error) {
+      console.error("Error removing all votes:", error)
+      setError("Failed to remove all votes. Please try again.")
     } finally {
       setIsRemovingVotes(null)
     }
@@ -846,6 +919,15 @@ export default function RetrospectivePage() {
     setIsSaving(itemId)
 
     try {
+      // Get all votes for this item before deleting
+      const votes = await retrospectiveApi.getAllVotesForGroupItem(itemId)
+
+      // Track users who voted and how many votes they had
+      const userVotes: Record<string, number> = {}
+      votes.forEach((vote) => {
+        userVotes[vote.userId] = (userVotes[vote.userId] || 0) + 1
+      })
+
       // Delete the item via API
       await retrospectiveApi.deleteGroupItem(itemId, retroId)
 
@@ -876,6 +958,11 @@ export default function RetrospectivePage() {
         delete newComments[itemId]
         return newComments
       })
+
+      // Return votes to the current user if they voted
+      if (user?.id && userVotes[user.id]) {
+        setRemainingVotes((prev) => prev + userVotes[user.id])
+      }
     } catch (error) {
       console.error("Error deleting item:", error)
       setError("Failed to delete item. Please try again.")
@@ -974,22 +1061,162 @@ export default function RetrospectivePage() {
     setCurrentStep(step)
   }
 
-  const handleInviteUser = async () => {
-    try {
-      const invite = await retrospectiveApi.createInvite(retroId)
-      // Show the invite code to the user
-      alert(`Invite code: ${invite.code}`)
-    } catch (error) {
-      console.error("Error creating invite:", error)
-      setError("Failed to create invite. Please try again.")
-    }
-  }
-
   // Function to determine if an item should be blurred based on the current step
   const shouldBlurItem = (item: GroupItem) => {
     // In step 1 (reflect), blur all items that don't belong to the current user
     // But never blur the user's own cards
     return currentStep === 1 && item.userId !== user?.id && item.userId !== undefined
+  }
+
+  // Function to get user name from ID
+  const getUserName = (userId: string) => {
+    return userMap[userId] || "User"
+  }
+
+  // DnD handlers
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event
+    const [columnId, itemId] = active.id.toString().split(":")
+
+    setActiveId(active.id.toString())
+    setActiveColumnId(columnId)
+
+    // Find the item being dragged
+    const column = columns.find((col) => col.id === columnId)
+    if (column) {
+      const item = column.items.find((item) => item.id.toString() === itemId)
+      if (item) {
+        setActiveItem(item)
+      }
+    }
+  }
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event
+
+    if (!over) return
+
+    const [activeColumnId, activeItemId] = active.id.toString().split(":")
+    const [overColumnId, overItemId] = over.id.toString().split(":")
+
+    // If dragging over a different column
+    if (activeColumnId !== overColumnId) {
+      setColumns((prev) => {
+        // Find the active and over columns
+        const activeColumn = prev.find((col) => col.id === activeColumnId)
+        const overColumn = prev.find((col) => col.id === overColumnId)
+
+        if (!activeColumn || !overColumn) return prev
+
+        // Find the active item
+        const activeItem = activeColumn.items.find((item) => item.id.toString() === activeItemId)
+        if (!activeItem) return prev
+
+        // Create new columns array with the item moved
+        return prev.map((col) => {
+          // Remove from source column
+          if (col.id === activeColumnId) {
+            return {
+              ...col,
+              items: col.items.filter((item) => item.id.toString() !== activeItemId),
+            }
+          }
+
+          // Add to target column
+          if (col.id === overColumnId) {
+            // If dropping on another item, insert at that position
+            if (overItemId) {
+              const overItemIndex = col.items.findIndex((item) => item.id.toString() === overItemId)
+              const newItems = [...col.items]
+              newItems.splice(overItemIndex, 0, { ...activeItem, groupId: col.groupId })
+              return {
+                ...col,
+                items: newItems,
+              }
+            }
+
+            // If dropping on the column itself, add to the end
+            return {
+              ...col,
+              items: [...col.items, { ...activeItem, groupId: col.groupId }],
+            }
+          }
+
+          return col
+        })
+      })
+    }
+  }
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+
+    setActiveId(null)
+    setActiveItem(null)
+    setActiveColumnId(null)
+
+    if (!over) return
+
+    const [activeColumnId, activeItemId] = active.id.toString().split(":")
+    const [overColumnId, overItemId] = over.id.toString().split(":")
+
+    // If dropped in a different column
+    if (activeColumnId !== overColumnId) {
+      const sourceColumn = columns.find((col) => col.id === activeColumnId)
+      const targetColumn = columns.find((col) => col.id === overColumnId)
+
+      if (!sourceColumn || !targetColumn) return
+
+      const itemId = Number.parseInt(activeItemId)
+
+      try {
+        setIsSaving(itemId)
+
+        // Call API to move the item
+        const moveItemRequest: MoveGroupItemRequest = {
+          newGroupId: targetColumn.groupId,
+          orderPosition: overItemId
+            ? targetColumn.items.findIndex((item) => item.id.toString() === overItemId)
+            : targetColumn.items.length,
+        }
+
+        await retrospectiveApi.moveGroupItem(itemId, moveItemRequest, retroId)
+      } catch (error) {
+        console.error("Error moving item:", error)
+        setError("Failed to move item. Please try again.")
+
+        // Revert the UI change if the API call fails
+        setColumns((prev) => {
+          // Find the active item in the target column
+          const targetColumn = prev.find((col) => col.id === overColumnId)
+          const sourceColumn = prev.find((col) => col.id === activeColumnId)
+
+          if (!targetColumn || !sourceColumn) return prev
+
+          const movedItem = targetColumn.items.find((item) => item.id.toString() === activeItemId)
+          if (!movedItem) return prev
+
+          // Move the item back to its original column
+          return prev.map((col) => {
+            if (col.id === overColumnId) {
+              return {
+                ...col,
+                items: col.items.filter((item) => item.id.toString() !== activeItemId),
+              }
+            }
+            if (col.id === activeColumnId) {
+              return {
+                ...col,
+                items: [...col.items, { ...movedItem, groupId: col.groupId }],
+              }
+            }
+            return col
+          })
+        })
+      } finally {
+        setIsSaving(null)
+      }
+    }
   }
 
   if (isLoading) {
@@ -1039,20 +1266,6 @@ export default function RetrospectivePage() {
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>Set a timer for the current retrospective phase</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-1" onClick={handleInviteUser}>
-                      <UserPlus className="h-4 w-4" />
-                      Invite
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Invite team members to this retrospective</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -1114,250 +1327,130 @@ export default function RetrospectivePage() {
           </Alert>
         )}
 
-        <div
-          className={`grid grid-cols-1 gap-6 ${
-            columns.length <= 3
-              ? "md:grid-cols-3"
-              : columns.length === 4
-                ? "md:grid-cols-2 lg:grid-cols-4"
-                : "md:grid-cols-3 lg:grid-cols-5"
-          }`}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
         >
-          {columns.map((column) => (
-            <div key={column.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <div className="p-4 border-b bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium text-gray-900">
-                    <span className="mr-2">{column.emoji}</span>
-                    {column.title}
-                  </h3>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
-                        <span>Sort by votes</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <span>Sort by date</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <span>Clear all items</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+          <div
+            className={`grid grid-cols-1 gap-6 ${
+              columns.length <= 3
+                ? "md:grid-cols-3"
+                : columns.length === 4
+                  ? "md:grid-cols-2 lg:grid-cols-4"
+                  : "md:grid-cols-3 lg:grid-cols-5"
+            }`}
+          >
+            {columns.map((column) => (
+              <div key={column.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                <div className="p-4 border-b bg-gray-50">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium text-gray-900">
+                      <span className="mr-2">{column.emoji}</span>
+                      {column.title}
+                    </h3>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>
+                          <span>Sort by votes</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <span>Sort by date</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <span>Clear all items</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{column.description}</p>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">{column.description}</p>
-              </div>
 
-              <div className="p-4 space-y-4">
-                {column.items.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`bg-white border rounded-md shadow-sm ${shouldBlurItem(item) ? "blur-sm" : ""}`}
-                  >
-                    <div className="p-3 relative">
-                      {/* Card menu (three dots) in top right corner */}
-                      <div className="absolute top-2 right-2">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-6 w-6">
-                              <MoreHorizontal className="h-3 w-3" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleStartEditing(item)}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleOpenConvertDialog(item.id)}>
-                              <MoveRight className="h-4 w-4 mr-2" />
-                              Move to Action Items
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteItem(column.id, item.id)}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                <div className="p-4 space-y-4" id={column.id}>
+                  <SortableContext items={column.items.map((item) => `${column.id}:${item.id}`)}>
+                    {column.items.map((item) => (
+                      <RetroItem
+                        key={item.id}
+                        item={item}
+                        columnId={column.id}
+                        onVote={handleVote}
+                        onAddComment={handleAddComment}
+                        onStartEditing={handleStartEditing}
+                        onCancelEditing={handleCancelEditing}
+                        onSaveEditing={handleSaveEditing}
+                        onDeleteItem={handleDeleteItem}
+                        onOpenConvertDialog={handleOpenConvertDialog}
+                        onToggleComments={toggleComments}
+                        onRemoveMyVotes={handleRemoveMyVotes}
+                        onRemoveAllVotes={handleRemoveAllVotes}
+                        currentStep={currentStep}
+                        editingItemId={editingItemId}
+                        editingContent={editingContent}
+                        setEditingContent={setEditingContent}
+                        isSaving={isSaving}
+                        isVoting={isVoting}
+                        isRemovingVotes={isRemovingVotes}
+                        isAddingComment={isAddingComment}
+                        showComments={showComments}
+                        comments={comments}
+                        commentCounts={commentCounts}
+                        voteCounts={voteCounts}
+                        newComments={newComments}
+                        setNewComments={setNewComments}
+                        shouldBlurItem={shouldBlurItem}
+                        user={user}
+                        getUserName={getUserName}
+                        isCreator={retrospective?.creatorUserId === user?.id}
+                      />
+                    ))}
+                  </SortableContext>
 
-                      {editingItemId === item.id ? (
-                        <div className="space-y-2">
-                          <Input
-                            value={editingContent}
-                            onChange={(e) => setEditingContent(e.target.value)}
-                            className="text-sm"
-                            autoFocus
-                          />
-                          <div className="flex justify-end gap-2">
-                            <Button size="sm" variant="outline" className="h-7 px-2" onClick={handleCancelEditing}>
-                              <X className="h-3 w-3 mr-1" />
-                              Cancel
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="h-7 px-2 bg-purple-600 hover:bg-purple-700"
-                              onClick={handleSaveEditing}
-                              disabled={isSaving === item.id}
-                            >
-                              {isSaving === item.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                              ) : (
-                                <Check className="h-3 w-3 mr-1" />
-                              )}
-                              Save
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-sm pr-6">{item.content}</div>
-                      )}
-
-                      {item.userId === user?.id && currentStep === 1 && (
-                        <div className="absolute top-1 right-8">
-                          <span className="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded-full">
-                            Your card
-                          </span>
-                        </div>
-                      )}
-
-                      <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-                        <span>{user?.name || "Anonymous"}</span>
-                        <div className="flex items-center gap-2">
-                          {currentStep >= 3 && (
-                            <button
-                              className="flex items-center gap-1 hover:text-purple-600"
-                              onClick={() => toggleComments(item.id)}
-                            >
-                              <MessageSquare className="h-3 w-3" />
-                              {commentCounts[item.id] > 0 && (
-                                <span className="bg-purple-100 text-purple-800 text-xs px-1.5 py-0.5 rounded-full">
-                                  {commentCounts[item.id]}
-                                </span>
-                              )}
-                            </button>
-                          )}
-
-                          {currentStep >= 3 && (
-                            <button
-                              className="flex items-center gap-1 hover:text-purple-600"
-                              onClick={() => handleVote(column.id, item.id)}
-                              disabled={isVoting === item.id || remainingVotes <= 0}
-                            >
-                              {isVoting === item.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <ThumbsUp className="h-3 w-3" />
-                              )}
-                              {voteCounts[item.id] > 0 && (
-                                <span className="bg-purple-100 text-purple-800 text-xs px-1.5 py-0.5 rounded-full">
-                                  {voteCounts[item.id]}
-                                </span>
-                              )}
-                            </button>
-                          )}
-
-                          {/* New button to remove votes */}
-                          {currentStep >= 3 && voteCounts[item.id] > 0 && (
-                            <button
-                              className="flex items-center gap-1 hover:text-red-600"
-                              onClick={() => handleRemoveVotes(item.id)}
-                              disabled={isRemovingVotes === item.id}
-                              title="Remove my votes"
-                            >
-                              {isRemovingVotes === item.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <ThumbsDown className="h-3 w-3" />
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {showComments[item.id] && currentStep >= 3 && (
-                      <div className="border-t px-3 py-2 bg-gray-50">
-                        {comments[item.id]?.length > 0 ? (
-                          <div className="space-y-2 mb-2">
-                            {comments[item.id].map((comment) => (
-                              <div key={comment.id} className="text-xs">
-                                <div className="font-medium">{comment.isAnonymous ? "Anonymous" : user?.name}</div>
-                                <div>{comment.content}</div>
-                              </div>
-                            ))}
-                          </div>
+                  {currentStep === 1 && (
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Add an item..."
+                        value={newItems[column.id] || ""}
+                        onChange={(e) => setNewItems((prev) => ({ ...prev, [column.id]: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handleAddItem(column.id)
+                          }
+                        }}
+                      />
+                      <Button
+                        className="px-2 bg-purple-600 hover:bg-purple-700"
+                        onClick={() => handleAddItem(column.id)}
+                        disabled={isSaving === column.groupId}
+                      >
+                        {isSaving === column.groupId ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
-                          <div className="text-xs text-gray-500 mb-2">No comments yet</div>
+                          <PlusCircle className="h-4 w-4" />
                         )}
-
-                        <div className="flex gap-2">
-                          <Input
-                            className="h-7 text-xs"
-                            placeholder="Add a comment..."
-                            value={newComments[item.id] || ""}
-                            onChange={(e) => setNewComments((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                handleAddComment(column.id, item.id)
-                              }
-                            }}
-                          />
-                          <Button
-                            size="sm"
-                            className="h-7 px-2 bg-purple-600 hover:bg-purple-700"
-                            onClick={() => handleAddComment(column.id, item.id)}
-                            disabled={isAddingComment === item.id}
-                          >
-                            {isAddingComment === item.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <PlusCircle className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {currentStep === 1 && (
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Add an item..."
-                      value={newItems[column.id] || ""}
-                      onChange={(e) => setNewItems((prev) => ({ ...prev, [column.id]: e.target.value }))}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          handleAddItem(column.id)
-                        }
-                      }}
-                    />
-                    <Button
-                      className="px-2 bg-purple-600 hover:bg-purple-700"
-                      onClick={() => handleAddItem(column.id)}
-                      disabled={isSaving === column.groupId}
-                    >
-                      {isSaving === column.groupId ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <PlusCircle className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+
+          {/* Drag overlay for the currently dragged item */}
+          <DragOverlay>
+            {activeId && activeItem && (
+              <div className="bg-white border rounded-md shadow-sm p-3 w-full max-w-xs opacity-80">
+                <div className="text-sm">{activeItem.content}</div>
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
 
         <div className="mt-8 flex justify-between">
           <Button
@@ -1476,6 +1569,259 @@ export default function RetrospectivePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+// RetroItem component for individual cards
+interface RetroItemProps {
+  item: GroupItem
+  columnId: string
+  onVote: (columnId: string, itemId: number) => void
+  onAddComment: (columnId: string, itemId: number) => void
+  onStartEditing: (item: GroupItem) => void
+  onCancelEditing: () => void
+  onSaveEditing: () => void
+  onDeleteItem: (columnId: string, itemId: number) => void
+  onOpenConvertDialog: (itemId: number) => void
+  onToggleComments: (itemId: number) => void
+  onRemoveMyVotes: (itemId: number) => void
+  onRemoveAllVotes: (itemId: number) => void
+  currentStep: number
+  editingItemId: number | null
+  editingContent: string
+  setEditingContent: (content: string) => void
+  isSaving: number | null
+  isVoting: number | null
+  isRemovingVotes: number | null
+  isAddingComment: number | null
+  showComments: Record<number, boolean>
+  comments: Record<number, Comment[]>
+  commentCounts: Record<number, number>
+  voteCounts: Record<number, number>
+  newComments: Record<number, string>
+  setNewComments: (fn: (prev: Record<number, string>) => Record<number, string>) => void
+  shouldBlurItem: (item: GroupItem) => boolean
+  user: any
+  getUserName: (userId: string) => string
+  isCreator: boolean
+}
+
+import { useSortable } from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
+
+function RetroItem({
+  item,
+  columnId,
+  onVote,
+  onAddComment,
+  onStartEditing,
+  onCancelEditing,
+  onSaveEditing,
+  onDeleteItem,
+  onOpenConvertDialog,
+  onToggleComments,
+  onRemoveMyVotes,
+  onRemoveAllVotes,
+  currentStep,
+  editingItemId,
+  editingContent,
+  setEditingContent,
+  isSaving,
+  isVoting,
+  isRemovingVotes,
+  isAddingComment,
+  showComments,
+  comments,
+  commentCounts,
+  voteCounts,
+  newComments,
+  setNewComments,
+  shouldBlurItem,
+  user,
+  getUserName,
+  isCreator,
+}: RetroItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: `${columnId}:${item.id}`,
+    disabled: currentStep === 1 && item.userId !== user?.id,
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : 1,
+  }
+
+  const creatorName = item.userId ? getUserName(item.userId) : "Anonymous"
+  const isOwnCard = item.userId === user?.id
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`bg-white border rounded-md shadow-sm ${shouldBlurItem(item) ? "blur-sm" : ""} ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+    >
+      <div className="p-3 relative">
+        {/* Card menu (three dots) in top right corner */}
+        <div className="absolute top-2 right-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6">
+                <MoreHorizontal className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onStartEditing(item)}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </DropdownMenuItem>
+
+              {currentStep >= 3 && voteCounts[item.id] > 0 && (
+                <DropdownMenuItem onClick={() => onRemoveMyVotes(item.id)}>
+                  <ThumbsUp className="h-4 w-4 mr-2" />
+                  Remove my votes
+                </DropdownMenuItem>
+              )}
+
+              {currentStep >= 3 && voteCounts[item.id] > 0 && isCreator && (
+                <DropdownMenuItem onClick={() => onRemoveAllVotes(item.id)}>
+                  <ThumbsUp className="h-4 w-4 mr-2" />
+                  Remove all votes
+                </DropdownMenuItem>
+              )}
+
+              <DropdownMenuItem onClick={() => onOpenConvertDialog(item.id)}>
+                <MoveRight className="h-4 w-4 mr-2" />
+                Move to Action Items
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onDeleteItem(columnId, item.id)} className="text-red-600">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {editingItemId === item.id ? (
+          <div className="space-y-2">
+            <Input
+              value={editingContent}
+              onChange={(e) => setEditingContent(e.target.value)}
+              className="text-sm"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="outline" className="h-7 px-2" onClick={onCancelEditing}>
+                <X className="h-3 w-3 mr-1" />
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="h-7 px-2 bg-purple-600 hover:bg-purple-700"
+                onClick={onSaveEditing}
+                disabled={isSaving === item.id}
+              >
+                {isSaving === item.id ? (
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                ) : (
+                  <Check className="h-3 w-3 mr-1" />
+                )}
+                Save
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm pr-6">{item.content}</div>
+        )}
+
+        {item.userId === user?.id && currentStep === 1 && (
+          <div className="absolute top-1 right-8">
+            <span className="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded-full">Your card</span>
+          </div>
+        )}
+
+        <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+          <span className="font-medium">{creatorName}</span>
+          <div className="flex items-center gap-2">
+            {currentStep >= 3 && (
+              <button
+                className="flex items-center gap-1 hover:text-purple-600"
+                onClick={() => onToggleComments(item.id)}
+              >
+                <MessageSquare className="h-3 w-3" />
+                {commentCounts[item.id] > 0 && (
+                  <span className="bg-purple-100 text-purple-800 text-xs px-1.5 py-0.5 rounded-full">
+                    {commentCounts[item.id]}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {currentStep >= 3 && (
+              <button
+                className="flex items-center gap-1 hover:text-purple-600"
+                onClick={() => onVote(columnId, item.id)}
+                disabled={isVoting === item.id }
+              >
+                {isVoting === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ThumbsUp className="h-3 w-3" />}
+                {voteCounts[item.id] > 0 && (
+                  <span className="bg-purple-100 text-purple-800 text-xs px-1.5 py-0.5 rounded-full">
+                    {voteCounts[item.id]}
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {showComments[item.id] && currentStep >= 3 && (
+        <div className="border-t px-3 py-2 bg-gray-50">
+          {comments[item.id]?.length > 0 ? (
+            <div className="space-y-2 mb-2">
+              {comments[item.id].map((comment) => (
+                <div key={comment.id} className="text-xs">
+                  <div className="font-medium">{comment.isAnonymous ? "Anonymous" : getUserName(comment.userId)}</div>
+                  <div className="mt-0.5">{comment.content}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-xs text-gray-500 mb-2">No comments yet</div>
+          )}
+
+          <div className="flex gap-2">
+            <Input
+              className="h-7 text-xs"
+              placeholder="Add a comment..."
+              value={newComments[item.id] || ""}
+              onChange={(e) => setNewComments((prev) => ({ ...prev, [item.id]: e.target.value }))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  onAddComment(columnId, item.id)
+                }
+              }}
+            />
+            <Button
+              size="sm"
+              className="h-7 px-2 bg-purple-600 hover:bg-purple-700"
+              onClick={() => onAddComment(columnId, item.id)}
+              disabled={isAddingComment === item.id}
+            >
+              {isAddingComment === item.id ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <PlusCircle className="h-3 w-3" />
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
