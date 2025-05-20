@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Search, Plus, MoreHorizontal, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
+import { Search, Plus, MoreHorizontal, Loader2 } from "lucide-react"
 import { retrospectiveApi, type RetrospectiveResponse, TemplateType } from "@/lib/api-service"
 
 export default function DashboardPage() {
@@ -91,14 +91,17 @@ export default function DashboardPage() {
     )
   }
 
+  // Modified to show all retrospectives in "created by me" tab
   const filteredRetros = retrospectives.filter((retro) => {
     const matchesSearch = retro.retrospective.title.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesTemplate =
       selectedTemplate === "All Templates" || getTemplateLabel(retro.retrospective.template).includes(selectedTemplate)
-    const matchesTab =
-      activeTab === "created" ||
-      (activeTab === "joined" && retro.retrospective.creatorUserId !== user?.id) ||
-      (activeTab === "archived" && !retro.retrospective.isActive)
+
+    // For v2, show all active retrospectives in "created by me" tab
+    const isArchived = !retro.retrospective.isActive
+
+    // Modified logic to show all retrospectives in "created by me" tab
+    const matchesTab = (activeTab === "created" && !isArchived) || (activeTab === "archived" && isArchived)
 
     return matchesSearch && matchesTemplate && matchesTab
   })
@@ -309,13 +312,7 @@ export default function DashboardPage() {
                     value="created"
                     className="rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-purple-600 data-[state=active]:text-purple-600 data-[state=active]:shadow-none"
                   >
-                    Created by me
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="joined"
-                    className="rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-purple-600 data-[state=active]:text-purple-600 data-[state=active]:shadow-none"
-                  >
-                    Joined
+                    All Retrospectives
                   </TabsTrigger>
                   <TabsTrigger
                     value="archived"
@@ -431,13 +428,6 @@ export default function DashboardPage() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="joined" className="p-0">
-                <div className="py-12 text-center">
-                  <p className="text-gray-500">No joined retrospectives found</p>
-                  <p className="text-sm text-gray-400 mt-2">Retrospectives you join will appear here</p>
-                </div>
-              </TabsContent>
-
               <TabsContent value="archived" className="p-0">
                 {filteredRetros.length === 0 ? (
                   <div className="py-12 text-center">
@@ -541,31 +531,6 @@ export default function DashboardPage() {
                 )}
               </TabsContent>
             </Tabs>
-            {filteredRetros.length > 0 && (
-              <div className="px-4 py-3 flex items-center justify-center border-t">
-                <nav className="flex items-center gap-1" aria-label="Pagination">
-                  <Button variant="outline" size="icon" className="h-8 w-8 rounded-md">
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 bg-purple-50 text-purple-600 border-purple-500"
-                  >
-                    1
-                  </Button>
-                  <Button variant="outline" size="sm" className="h-8 w-8">
-                    2
-                  </Button>
-                  <Button variant="outline" size="sm" className="h-8 w-8">
-                    3
-                  </Button>
-                  <Button variant="outline" size="icon" className="h-8 w-8 rounded-md">
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </nav>
-              </div>
-            )}
           </div>
         </div>
       </main>

@@ -1,5 +1,7 @@
 "use client"
 
+import { Label } from "@/components/ui/label"
+
 import { useState, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -17,6 +19,11 @@ import {
   Edit,
   Check,
   X,
+  AlertTriangle,
+  Clock,
+  UserPlus,
+  MoveRight,
+  ThumbsDown,
 } from "lucide-react"
 import {
   retrospectiveApi,
@@ -28,12 +35,30 @@ import {
   type CreateCommentRequest,
   type UpdateGroupItemRequest,
   type MoveGroupItemRequest,
+  type ConvertToActionRequest,
 } from "@/lib/api-service"
 import { ShareDialog } from "@/components/share-dialog"
 import { RetroSteps } from "@/components/retro-steps"
 import { TimerDialog } from "@/components/timer-dialog"
 import { ActionItemsPanel } from "@/components/action-items-panel"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface RetroColumn {
   id: string
@@ -55,6 +80,7 @@ export default function RetrospectivePage() {
   const [isSaving, setIsSaving] = useState<number | null>(null)
   const [isAddingComment, setIsAddingComment] = useState<number | null>(null)
   const [isVoting, setIsVoting] = useState<number | null>(null)
+  const [isRemovingVotes, setIsRemovingVotes] = useState<number | null>(null)
   const [user, setUser] = useState<any>(null)
   const [retrospective, setRetrospective] = useState<Retrospective | null>(null)
   const [columns, setColumns] = useState<RetroColumn[]>([])
@@ -73,6 +99,16 @@ export default function RetrospectivePage() {
   const [editingItemId, setEditingItemId] = useState<number | null>(null)
   const [editingContent, setEditingContent] = useState("")
   const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null)
+  const [timerDialogOpen, setTimerDialogOpen] = useState(false)
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
+  const [timerDuration, setTimerDuration] = useState(0)
+  const [timerRunning, setTimerRunning] = useState(false)
+  const [timerEndTime, setTimerEndTime] = useState<Date | null>(null)
+  const [timeRemaining, setTimeRemaining] = useState<number>(0)
+  const [convertingItemId, setConvertingItemId] = useState<number | null>(null)
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false)
+  const [convertPriority, setConvertPriority] = useState<string>("1") // Medium priority
+  const [convertStatus, setConvertStatus] = useState<string>("0") // Not started
 
   // Load and save remaining votes to localStorage
   useEffect(() => {
@@ -97,6 +133,49 @@ export default function RetrospectivePage() {
     }
   }, [voteCounts, retroId])
 
+  // Timer functionality
+  useEffect(() => {
+    if (timerRunning && timerEndTime) {
+      const interval = setInterval(() => {
+        const now = new Date()
+        const diff = timerEndTime.getTime() - now.getTime()
+
+        if (diff <= 0) {
+          setTimerRunning(false)
+          setTimeRemaining(0)
+          clearInterval(interval)
+          // Show notification or alert that timer has ended
+          alert("Timer has ended!")
+        } else {
+          setTimeRemaining(diff)
+        }
+      }, 1000)
+
+      return () => clearInterval(interval)
+    }
+  }, [timerRunning, timerEndTime])
+
+  const startTimer = (minutes: number) => {
+    const endTime = new Date()
+    endTime.setMinutes(endTime.getMinutes() + minutes)
+    setTimerEndTime(endTime)
+    setTimerRunning(true)
+    setTimerDuration(minutes)
+    setTimerDialogOpen(false)
+  }
+
+  const stopTimer = () => {
+    setTimerRunning(false)
+    setTimerEndTime(null)
+  }
+
+  const formatTimeRemaining = () => {
+    if (!timeRemaining) return "00:00"
+    const minutes = Math.floor(timeRemaining / 60000)
+    const seconds = Math.floor((timeRemaining % 60000) / 1000)
+    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+  }
+
   // Set up periodic refresh of vote counts and comments
   useEffect(() => {
     if (retroId && currentStep >= 3) {
@@ -117,7 +196,7 @@ export default function RetrospectivePage() {
               updatedVoteCounts[item.id] = voteResponse.count
 
               // Get comment count for this item
-              const commentResponse = await retrospectiveApi.getComments(item.id)
+              const commentResponse = await retrospectiveApi.getComments(item.id, retroId)
               updatedCommentCounts[item.id] = commentResponse.length
             } catch (error) {
               console.error(`Error refreshing data for item ${item.id}:`, error)
@@ -188,7 +267,7 @@ export default function RetrospectivePage() {
                 const initialCommentCounts: Record<number, number> = {}
                 for (const item of groupItems) {
                   try {
-                    const comments = await retrospectiveApi.getComments(item.id)
+                    const comments = await retrospectiveApi.getComments(item.id, retroId)
                     initialCommentCounts[item.id] = comments.length
                   } catch (error) {
                     console.error(`Error loading comments for item ${item.id}:`, error)
@@ -512,7 +591,8 @@ export default function RetrospectivePage() {
         isHidden: false,
       }
 
-      const newItem = await retrospectiveApi.createGroupItem(createItemRequest)
+      // Updated to use the new API endpoint with retrospectiveId
+      const newItem = await retrospectiveApi.createGroupItem(retroId, createItemRequest)
 
       // Update the columns state with the new item
       setColumns((prev) => prev.map((col) => (col.id === columnId ? { ...col, items: [...col.items, newItem] } : col)))
@@ -563,7 +643,7 @@ export default function RetrospectivePage() {
         content: editingContent,
       }
 
-      await retrospectiveApi.updateGroupItem(editingItemId, updateItemRequest)
+      await retrospectiveApi.updateGroupItem(editingItemId, updateItemRequest, retroId)
 
       // Update the columns state with the updated item
       setColumns((prev) =>
@@ -602,7 +682,7 @@ export default function RetrospectivePage() {
         orderPosition: targetColumn.items.length, // Add to the end of the target column
       }
 
-      await retrospectiveApi.moveGroupItem(itemId, moveItemRequest)
+      await retrospectiveApi.moveGroupItem(itemId, moveItemRequest, retroId)
 
       // Update the columns state by removing the item from the source column and adding it to the target column
       setColumns((prev) =>
@@ -659,6 +739,36 @@ export default function RetrospectivePage() {
     }
   }
 
+  const handleRemoveVotes = async (itemId: number) => {
+    if (!user?.id) return
+
+    setIsRemovingVotes(itemId)
+
+    try {
+      // Call the API to remove all votes by this user for this item
+      await retrospectiveApi.removeAllVotesForItem(itemId, user.id)
+
+      // Get updated vote count
+      const voteResponse = await retrospectiveApi.getVotesForGroupItem(itemId)
+
+      // Update the vote count
+      setVoteCounts((prev) => ({
+        ...prev,
+        [itemId]: voteResponse.count,
+      }))
+
+      // Recalculate remaining votes
+      // This is a simplified approach - in a real app, you'd need to track how many votes were removed
+      const addedVotes = 1 // Assuming we're adding back 1 vote
+      setRemainingVotes((prev) => prev + addedVotes)
+    } catch (error) {
+      console.error("Error removing votes:", error)
+      setError("Failed to remove votes. Please try again.")
+    } finally {
+      setIsRemovingVotes(null)
+    }
+  }
+
   const toggleComments = async (itemId: number) => {
     // Toggle the comments visibility
     setShowComments((prev) => {
@@ -675,7 +785,7 @@ export default function RetrospectivePage() {
 
   const loadComments = async (itemId: number) => {
     try {
-      const itemComments = await retrospectiveApi.getComments(itemId)
+      const itemComments = await retrospectiveApi.getComments(itemId, retroId)
       setComments((prev) => ({
         ...prev,
         [itemId]: itemComments,
@@ -705,7 +815,7 @@ export default function RetrospectivePage() {
         isAnonymous: false,
       }
 
-      const newComment = await retrospectiveApi.createComment(createCommentRequest)
+      const newComment = await retrospectiveApi.createComment(createCommentRequest, retroId)
 
       // Update the comments state with the new comment
       const updatedComments = [...(comments[itemId] || []), newComment]
@@ -737,7 +847,7 @@ export default function RetrospectivePage() {
 
     try {
       // Delete the item via API
-      await retrospectiveApi.deleteGroupItem(itemId)
+      await retrospectiveApi.deleteGroupItem(itemId, retroId)
 
       // Update the columns state
       setColumns((prev) =>
@@ -774,19 +884,69 @@ export default function RetrospectivePage() {
     }
   }
 
-  const handleConvertToAction = async (itemId: number, status: number, priority: number, assignedUserId: string) => {
-    setIsSaving(itemId)
+  const handleOpenConvertDialog = (itemId: number) => {
+    setConvertingItemId(itemId)
+    setConvertDialogOpen(true)
+  }
+
+  const handleCloseConvertDialog = () => {
+    setConvertingItemId(null)
+    setConvertDialogOpen(false)
+    setConvertPriority("1") // Reset to medium priority
+    setConvertStatus("0") // Reset to not started
+  }
+
+  const handleConvertToAction = async () => {
+    if (!convertingItemId || !user?.id) {
+      handleCloseConvertDialog()
+      return
+    }
+
+    setIsSaving(convertingItemId)
 
     try {
-      // Convert the item to an action via API
-      await retrospectiveApi.convertToAction(itemId, {
-        status,
-        priority,
-        assignedUserId,
-      })
+      // Find the item to convert
+      let itemToConvert: GroupItem | undefined
+      let columnId = ""
 
-      // You might want to update the UI to reflect that this item is now an action item
-      // This depends on how you want to handle action items in your UI
+      for (const column of columns) {
+        const item = column.items.find((item) => item.id === convertingItemId)
+        if (item) {
+          itemToConvert = item
+          columnId = column.id
+          break
+        }
+      }
+
+      if (!itemToConvert) {
+        throw new Error("Item not found")
+      }
+
+      // Convert the item to an action via API
+      const convertRequest: ConvertToActionRequest = {
+        status: Number.parseInt(convertStatus),
+        priority: Number.parseInt(convertPriority),
+        assignedUserId: user.id,
+      }
+
+      await retrospectiveApi.convertToAction(convertingItemId, convertRequest, retroId)
+
+      // Remove the item from the board
+      setColumns((prev) =>
+        prev.map((col) => ({
+          ...col,
+          items: col.items.filter((item) => item.id !== convertingItemId),
+        })),
+      )
+
+      // Show success message
+      alert("Item successfully converted to action item!")
+
+      // Open the action items panel to show the newly converted item
+      setShowActionItems(true)
+
+      // Close the dialog
+      handleCloseConvertDialog()
     } catch (error) {
       console.error("Error converting item to action:", error)
       setError("Failed to convert item to action. Please try again.")
@@ -814,10 +974,22 @@ export default function RetrospectivePage() {
     setCurrentStep(step)
   }
 
+  const handleInviteUser = async () => {
+    try {
+      const invite = await retrospectiveApi.createInvite(retroId)
+      // Show the invite code to the user
+      alert(`Invite code: ${invite.code}`)
+    } catch (error) {
+      console.error("Error creating invite:", error)
+      setError("Failed to create invite. Please try again.")
+    }
+  }
+
   // Function to determine if an item should be blurred based on the current step
   const shouldBlurItem = (item: GroupItem) => {
     // In step 1 (reflect), blur all items that don't belong to the current user
-    return currentStep === 1 && item.userId !== user?.id
+    // But never blur the user's own cards
+    return currentStep === 1 && item.userId !== user?.id && item.userId !== undefined
   }
 
   if (isLoading) {
@@ -846,24 +1018,75 @@ export default function RetrospectivePage() {
               <div className="ml-4 text-lg font-medium text-gray-900">{retroName}</div>
             </div>
             <div className="flex items-center gap-2">
+              {timerRunning && (
+                <div className="flex items-center gap-1 bg-purple-100 text-purple-800 px-3 py-1 rounded-full">
+                  <Clock className="h-4 w-4" />
+                  <span className="font-medium">{formatTimeRemaining()}</span>
+                </div>
+              )}
+
               <div className="text-sm text-gray-600 mr-2">
                 <span className="font-medium">{remainingVotes}</span> votes remaining
               </div>
 
-              <TimerDialog open={false} onOpenChange={() => {}} />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-1" onClick={() => setTimerDialogOpen(true)}>
+                      <Clock className="h-4 w-4" />
+                      {timerRunning ? "Stop Timer" : "Start Timer"}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Set a timer for the current retrospective phase</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-1" onClick={handleInviteUser}>
+                      <UserPlus className="h-4 w-4" />
+                      Invite
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Invite team members to this retrospective</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
               <Button variant="outline" size="sm" className="gap-1" onClick={() => setShareDialogOpen(true)}>
                 <Share2 className="h-4 w-4" />
                 Share
               </Button>
 
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-purple-100 text-purple-700">
-                    {user?.name?.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-purple-100 text-purple-700">
+                        {user?.name?.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem>
+                    <span>Profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <span>Settings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Link href="/dashboard">Dashboard</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Link href="/logout">Logout</Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
@@ -873,7 +1096,8 @@ export default function RetrospectivePage() {
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {error && (
-          <div className="bg-red-50 p-4 rounded-md text-red-500 mb-6">
+          <div className="bg-red-50 p-4 rounded-md text-red-500 mb-6 flex items-center">
+            <AlertTriangle className="h-5 w-5 mr-2" />
             {error}
             <Button variant="link" className="p-0 h-auto text-red-600 ml-2" onClick={() => setError(null)}>
               Dismiss
@@ -883,7 +1107,8 @@ export default function RetrospectivePage() {
 
         {showVoteLimitAlert && (
           <Alert className="mb-4 bg-amber-50 border-amber-200">
-            <AlertDescription className="text-amber-700">
+            <AlertDescription className="text-amber-700 flex items-center">
+              <AlertTriangle className="h-5 w-5 mr-2" />
               You've used all your votes! Each participant has a maximum of 6 votes.
             </AlertDescription>
           </Alert>
@@ -906,9 +1131,24 @@ export default function RetrospectivePage() {
                     <span className="mr-2">{column.emoji}</span>
                     {column.title}
                   </h3>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem>
+                        <span>Sort by votes</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <span>Sort by date</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <span>Clear all items</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">{column.description}</p>
               </div>
@@ -920,6 +1160,35 @@ export default function RetrospectivePage() {
                     className={`bg-white border rounded-md shadow-sm ${shouldBlurItem(item) ? "blur-sm" : ""}`}
                   >
                     <div className="p-3 relative">
+                      {/* Card menu (three dots) in top right corner */}
+                      <div className="absolute top-2 right-2">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6">
+                              <MoreHorizontal className="h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleStartEditing(item)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleOpenConvertDialog(item.id)}>
+                              <MoveRight className="h-4 w-4 mr-2" />
+                              Move to Action Items
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteItem(column.id, item.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
                       {editingItemId === item.id ? (
                         <div className="space-y-2">
                           <Input
@@ -949,11 +1218,11 @@ export default function RetrospectivePage() {
                           </div>
                         </div>
                       ) : (
-                        <div className="text-sm">{item.content}</div>
+                        <div className="text-sm pr-6">{item.content}</div>
                       )}
 
                       {item.userId === user?.id && currentStep === 1 && (
-                        <div className="absolute top-1 right-1">
+                        <div className="absolute top-1 right-8">
                           <span className="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded-full">
                             Your card
                           </span>
@@ -963,15 +1232,6 @@ export default function RetrospectivePage() {
                       <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
                         <span>{user?.name || "Anonymous"}</span>
                         <div className="flex items-center gap-2">
-                          {currentStep >= 2 && editingItemId !== item.id && (
-                            <button
-                              className="flex items-center gap-1 hover:text-purple-600"
-                              onClick={() => handleStartEditing(item)}
-                            >
-                              <Edit className="h-3 w-3" />
-                            </button>
-                          )}
-
                           {currentStep >= 3 && (
                             <button
                               className="flex items-center gap-1 hover:text-purple-600"
@@ -1005,17 +1265,21 @@ export default function RetrospectivePage() {
                             </button>
                           )}
 
-                          <button
-                            className="flex items-center gap-1 text-red-500 hover:text-red-700"
-                            onClick={() => handleDeleteItem(column.id, item.id)}
-                            disabled={isSaving === item.id}
-                          >
-                            {isSaving === item.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-3 w-3" />
-                            )}
-                          </button>
+                          {/* New button to remove votes */}
+                          {currentStep >= 3 && voteCounts[item.id] > 0 && (
+                            <button
+                              className="flex items-center gap-1 hover:text-red-600"
+                              onClick={() => handleRemoveVotes(item.id)}
+                              disabled={isRemovingVotes === item.id}
+                              title="Remove my votes"
+                            >
+                              {isRemovingVotes === item.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <ThumbsDown className="h-3 w-3" />
+                              )}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1134,10 +1398,84 @@ export default function RetrospectivePage() {
 
       <ShareDialog open={shareDialogOpen} onOpenChange={setShareDialogOpen} retrospectiveId={retroId} />
 
+      <TimerDialog
+        open={timerDialogOpen}
+        onOpenChange={setTimerDialogOpen}
+        onStartTimer={startTimer}
+        onStopTimer={stopTimer}
+        isTimerRunning={timerRunning}
+      />
+
       <ActionItemsPanel
         isOpen={showActionItems && currentStep === 4}
         onToggle={() => setShowActionItems(!showActionItems)}
+        retrospectiveId={retroId}
+        onItemConverted={() => {
+          // Refresh the action items panel when an item is converted
+          setShowActionItems(true)
+        }}
       />
+
+      {/* Convert to Action Item Dialog */}
+      <Dialog open={convertDialogOpen} onOpenChange={setConvertDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Convert to Action Item</DialogTitle>
+            <DialogDescription>
+              Convert this card to an action item. Set the priority and initial status.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="priority" className="text-right">
+                Priority
+              </Label>
+              <Select value={convertPriority} onValueChange={setConvertPriority}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Low</SelectItem>
+                  <SelectItem value="1">Medium</SelectItem>
+                  <SelectItem value="2">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="status" className="text-right">
+                Status
+              </Label>
+              <Select value={convertStatus} onValueChange={setConvertStatus}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Not Started</SelectItem>
+                  <SelectItem value="1">In Progress</SelectItem>
+                  <SelectItem value="2">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseConvertDialog}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConvertToAction}
+              disabled={isSaving === convertingItemId}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {isSaving === convertingItemId ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <MoveRight className="mr-2 h-4 w-4" />
+              )}
+              Convert
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

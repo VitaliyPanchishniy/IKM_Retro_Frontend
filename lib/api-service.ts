@@ -129,6 +129,13 @@ export interface RetrospectiveResponse {
   retrospective: Retrospective
 }
 
+// Interface for vote
+export interface Vote {
+  id: number
+  groupItemId: number
+  userId: string
+}
+
 // Retrospective API service
 export const retrospectiveApi = {
   // Get all retrospectives
@@ -199,7 +206,7 @@ export const retrospectiveApi = {
   // Get group items for a retrospective
   getGroupItems: async (retrospectiveId: string): Promise<GroupItem[]> => {
     try {
-      const response = await API.get(`/api/GroupItem/retrospective/${retrospectiveId}`)
+      const response = await API.get(`/api/retrospectives/${retrospectiveId}/items`)
       return response.data
     } catch (error) {
       console.error("Error fetching group items:", error)
@@ -208,9 +215,9 @@ export const retrospectiveApi = {
   },
 
   // Get a specific group item by ID
-  getGroupItem: async (id: number): Promise<GroupItem> => {
+  getGroupItem: async (id: number, retrospectiveId: string): Promise<GroupItem> => {
     try {
-      const response = await API.get(`/api/GroupItem/${id}`)
+      const response = await API.get(`/api/retrospectives/${retrospectiveId}/items/${id}`)
       return response.data
     } catch (error) {
       console.error("Error fetching group item:", error)
@@ -219,9 +226,9 @@ export const retrospectiveApi = {
   },
 
   // Create a new group item
-  createGroupItem: async (data: CreateGroupItemRequest): Promise<GroupItem> => {
+  createGroupItem: async (retrospectiveId: string, data: CreateGroupItemRequest): Promise<GroupItem> => {
     try {
-      const response = await API.post(`/api/GroupItem`, data)
+      const response = await API.post(`/api/retrospectives/${retrospectiveId}/items`, data)
       return response.data
     } catch (error) {
       console.error("Error creating group item:", error)
@@ -230,9 +237,13 @@ export const retrospectiveApi = {
   },
 
   // Update a group item
-  updateGroupItem: async (id: number, data: UpdateGroupItemRequest): Promise<GroupItem> => {
+  updateGroupItem: async (
+    itemId: number,
+    data: UpdateGroupItemRequest,
+    retrospectiveId: string,
+  ): Promise<GroupItem> => {
     try {
-      const response = await API.patch(`/api/GroupItem/${id}`, data)
+      const response = await API.patch(`/api/retrospectives/${retrospectiveId}/items/${itemId}`, data)
       return response.data
     } catch (error) {
       console.error("Error updating group item:", error)
@@ -241,9 +252,9 @@ export const retrospectiveApi = {
   },
 
   // Delete a group item
-  deleteGroupItem: async (id: number): Promise<void> => {
+  deleteGroupItem: async (itemId: number, retrospectiveId: string): Promise<void> => {
     try {
-      await API.delete(`/api/GroupItem/${id}`)
+      await API.delete(`/api/retrospectives/${retrospectiveId}/items/${itemId}`)
     } catch (error) {
       console.error("Error deleting group item:", error)
       throw error
@@ -251,9 +262,9 @@ export const retrospectiveApi = {
   },
 
   // Move a group item
-  moveGroupItem: async (id: number, data: MoveGroupItemRequest): Promise<GroupItem> => {
+  moveGroupItem: async (itemId: number, data: MoveGroupItemRequest, retrospectiveId: string): Promise<GroupItem> => {
     try {
-      const response = await API.put(`/api/GroupItem/${id}/move`, data)
+      const response = await API.put(`/api/retrospectives/${retrospectiveId}/items/${itemId}/move`, data)
       return response.data
     } catch (error) {
       console.error("Error moving group item:", error)
@@ -262,9 +273,9 @@ export const retrospectiveApi = {
   },
 
   // Convert a group item to an action item
-  convertToAction: async (id: number, data: ConvertToActionRequest): Promise<any> => {
+  convertToAction: async (itemId: number, data: ConvertToActionRequest, retrospectiveId: string): Promise<any> => {
     try {
-      const response = await API.post(`/api/GroupItem/${id}/convert-to-action`, data)
+      const response = await API.post(`/api/retrospectives/${retrospectiveId}/items/${itemId}/convert-to-action`, data)
       return response.data
     } catch (error) {
       console.error("Error converting group item to action:", error)
@@ -273,9 +284,9 @@ export const retrospectiveApi = {
   },
 
   // Get comments for a group item
-  getComments: async (groupItemId: number): Promise<Comment[]> => {
+  getComments: async (groupItemId: number, retrospectiveId: string): Promise<Comment[]> => {
     try {
-      const response = await API.get(`/api/Comment/group-item/${groupItemId}`)
+      const response = await API.get(`/api/retrospectives/${retrospectiveId}/items/${groupItemId}/comments`)
       return response.data
     } catch (error) {
       console.error("Error fetching comments:", error)
@@ -284,9 +295,12 @@ export const retrospectiveApi = {
   },
 
   // Create a new comment
-  createComment: async (data: CreateCommentRequest): Promise<Comment> => {
+  createComment: async (data: CreateCommentRequest, retrospectiveId: string): Promise<Comment> => {
     try {
-      const response = await API.post(`/api/Comment`, data)
+      const response = await API.post(`/api/retrospectives/${retrospectiveId}/items/${data.groupItemId}/comments`, {
+        content: data.content,
+        isAnonymous: data.isAnonymous,
+      })
       return response.data
     } catch (error) {
       console.error("Error creating comment:", error)
@@ -295,9 +309,9 @@ export const retrospectiveApi = {
   },
 
   // Delete a comment
-  deleteComment: async (id: number): Promise<void> => {
+  deleteComment: async (groupItemId: number, commentId: number, retrospectiveId: string): Promise<void> => {
     try {
-      await API.delete(`/api/Comment/${id}`)
+      await API.delete(`/api/retrospectives/${retrospectiveId}/items/${groupItemId}/comments/${commentId}`)
     } catch (error) {
       console.error("Error deleting comment:", error)
       throw error
@@ -307,7 +321,6 @@ export const retrospectiveApi = {
   // Vote for a group item
   voteForGroupItem: async (groupItemId: number): Promise<VoteCountResponse> => {
     try {
-      // Fix: Ensure we're sending the correct payload format
       const response = await API.post(`/api/GroupItemVote`, { groupItemId: groupItemId })
       return response.data
     } catch (error) {
@@ -327,12 +340,139 @@ export const retrospectiveApi = {
     }
   },
 
+  // Get all votes for a group item (including user info)
+  getAllVotesForGroupItem: async (groupItemId: number): Promise<Vote[]> => {
+    try {
+      const response = await API.get(`/api/GroupItemVote/by-group-item/${groupItemId}`)
+      return response.data
+    } catch (error) {
+      console.error("Error getting all votes for group item:", error)
+      throw error
+    }
+  },
+
+  // Get all votes by a user
+  getVotesByUser: async (userId: string): Promise<Vote[]> => {
+    try {
+      const response = await API.get(`/api/GroupItemVote/by-user/${userId}`)
+      return response.data
+    } catch (error) {
+      console.error("Error getting votes by user:", error)
+      throw error
+    }
+  },
+
   // Remove a vote
   removeVote: async (voteId: number): Promise<void> => {
     try {
       await API.delete(`/api/GroupItemVote/${voteId}`)
     } catch (error) {
       console.error("Error removing vote:", error)
+      throw error
+    }
+  },
+
+  // Remove all votes by a user for a specific item
+  removeAllVotesForItem: async (groupItemId: number, userId: string): Promise<void> => {
+    try {
+      // First get all votes for this item
+      const votes = await retrospectiveApi.getAllVotesForGroupItem(groupItemId)
+
+      // Filter votes by the current user
+      const userVotes = votes.filter((vote) => vote.userId === userId)
+
+      // Delete each vote
+      for (const vote of userVotes) {
+        await retrospectiveApi.removeVote(vote.id)
+      }
+    } catch (error) {
+      console.error("Error removing all votes for item:", error)
+      throw error
+    }
+  },
+
+  // Get action items for a retrospective
+  getActionItems: async (retrospectiveId: string): Promise<any[]> => {
+    try {
+      const response = await API.get(`/api/ActionItem/by-retrospective/${retrospectiveId}`)
+      return response.data
+    } catch (error) {
+      console.error("Error fetching action items:", error)
+      throw error
+    }
+  },
+
+  // Get a specific action item
+  getActionItem: async (id: string): Promise<any> => {
+    try {
+      const response = await API.get(`/api/ActionItem/${id}`)
+      return response.data
+    } catch (error) {
+      console.error("Error fetching action item:", error)
+      throw error
+    }
+  },
+
+  // Create a new action item
+  createActionItem: async (data: any): Promise<any> => {
+    try {
+      const response = await API.post(`/api/ActionItem`, data)
+      return response.data
+    } catch (error) {
+      console.error("Error creating action item:", error)
+      throw error
+    }
+  },
+
+  // Update an action item
+  updateActionItem: async (id: string, data: any): Promise<any> => {
+    try {
+      const response = await API.patch(`/api/ActionItem/${id}`, data)
+      return response.data
+    } catch (error) {
+      console.error("Error updating action item:", error)
+      throw error
+    }
+  },
+
+  // Delete an action item
+  deleteActionItem: async (id: string): Promise<void> => {
+    try {
+      await API.delete(`/api/ActionItem/${id}`)
+    } catch (error) {
+      console.error("Error deleting action item:", error)
+      throw error
+    }
+  },
+
+  // Get comments for an action item
+  getActionItemComments: async (actionItemId: number): Promise<any[]> => {
+    try {
+      const response = await API.get(`/api/ActionItemComment/action-item/${actionItemId}`)
+      return response.data
+    } catch (error) {
+      console.error("Error fetching action item comments:", error)
+      throw error
+    }
+  },
+
+  // Create a new action item comment
+  createActionItemComment: async (data: any): Promise<any> => {
+    try {
+      const response = await API.post(`/api/ActionItemComment`, data)
+      return response.data
+    } catch (error) {
+      console.error("Error creating action item comment:", error)
+      throw error
+    }
+  },
+
+  // Delete an action item comment
+  deleteActionItemComment: async (id: number): Promise<void> => {
+    try {
+      await API.delete(`/api/ActionItemComment/${id}`)
+    } catch (error) {
+      console.error("Error deleting action item comment:", error)
       throw error
     }
   },
