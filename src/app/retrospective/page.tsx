@@ -959,7 +959,7 @@ export default function RetrospectivePage() {
         return newComments
       })
 
-      // Return votes to the current user if they voted
+      // Return votes to the current user
       if (user?.id && userVotes[user.id]) {
         setRemainingVotes((prev) => prev + userVotes[user.id])
       }
@@ -973,6 +973,16 @@ export default function RetrospectivePage() {
 
   const handleOpenConvertDialog = (itemId: number) => {
     setConvertingItemId(itemId)
+
+    // Find the item to convert and pre-fill the title
+    for (const column of columns) {
+      const item = column.items.find((item) => item.id === itemId)
+      if (item) {
+        setEditingContent(item.content)
+        break
+      }
+    }
+
     setConvertDialogOpen(true)
   }
 
@@ -1009,13 +1019,20 @@ export default function RetrospectivePage() {
         throw new Error("Item not found")
       }
 
+      // Get the details input value
+      const detailsInput = document.getElementById("convert-details") as HTMLInputElement
+      const details = detailsInput ? detailsInput.value : ""
+
       // Convert the item to an action via API
       const convertRequest: ConvertToActionRequest = {
         status: Number.parseInt(convertStatus),
         priority: Number.parseInt(convertPriority),
         assignedUserId: user.id,
+        details: details, // Add the details field
+        description: editingContent, // Use the pre-filled title
       }
 
+      console.log("Converting item to action with data:", convertRequest)
       await retrospectiveApi.convertToAction(convertingItemId, convertRequest, retroId)
 
       // Remove the item from the board
@@ -1515,10 +1532,27 @@ export default function RetrospectivePage() {
           <DialogHeader>
             <DialogTitle>Convert to Action Item</DialogTitle>
             <DialogDescription>
-              Convert this card to an action item. Set the priority and initial status.
+              Convert this card to an action item. Set the title, details, priority and status.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="convert-title" className="text-right">
+                Title
+              </Label>
+              <Input
+                id="convert-title"
+                value={editingContent}
+                onChange={(e) => setEditingContent(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="convert-details" className="text-right">
+                Details
+              </Label>
+              <Input id="convert-details" placeholder="Additional details or description" className="col-span-3" />
+            </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="priority" className="text-right">
                 Priority
@@ -1545,7 +1579,7 @@ export default function RetrospectivePage() {
                 <SelectContent>
                   <SelectItem value="0">Not Started</SelectItem>
                   <SelectItem value="1">In Progress</SelectItem>
-                  <SelectItem value="2">Completed</SelectItem>
+                  <SelectItem value="2">Closed</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1766,7 +1800,7 @@ function RetroItem({
               <button
                 className="flex items-center gap-1 hover:text-purple-600"
                 onClick={() => onVote(columnId, item.id)}
-                disabled={isVoting === item.id }
+                disabled={isVoting === item.id}
               >
                 {isVoting === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ThumbsUp className="h-3 w-3" />}
                 {voteCounts[item.id] > 0 && (

@@ -70,6 +70,8 @@ export interface ConvertToActionRequest {
   status: number
   priority: number
   assignedUserId: string
+  details?: string
+  description?: string // Add this field
 }
 
 // Interface for voting on a group item
@@ -427,6 +429,7 @@ export const retrospectiveApi = {
   // Update an action item
   updateActionItem: async (id: string, data: any): Promise<any> => {
     try {
+      console.log(`Updating action item ${id} with data:`, data)
       const response = await API.patch(`/api/ActionItem/${id}`, data)
       return response.data
     } catch (error) {
