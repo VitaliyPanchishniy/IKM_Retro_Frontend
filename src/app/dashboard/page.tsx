@@ -13,21 +13,33 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Search, Plus, MoreHorizontal, Loader2 } from "lucide-react"
+import { Search, Plus, MoreHorizontal, Loader2, Edit, BarChart3 } from "lucide-react"
 import { retrospectiveApi, type RetrospectiveResponse, TemplateType } from "@/lib/api-service"
 
 export default function DashboardPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
+  const [isUpdating, setIsUpdating] = useState<string | null>(null)
   const [user, setUser] = useState<any>(null)
   const [retrospectives, setRetrospectives] = useState<RetrospectiveResponse[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("created")
-  const [currentPage, setCurrentPage] = useState(1)
   const [selectedTemplate, setSelectedTemplate] = useState("All Templates")
   const [error, setError] = useState<string | null>(null)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editingRetro, setEditingRetro] = useState<RetrospectiveResponse | null>(null)
+  const [newTitle, setNewTitle] = useState("")
 
   // Check authentication and load retrospectives
   useEffect(() => {
@@ -84,11 +96,87 @@ export default function DashboardPage() {
     }
   }
 
+  const handleEditRetro = (retro: RetrospectiveResponse) => {
+    setEditingRetro(retro)
+    setNewTitle(retro.retrospective.title)
+    setEditDialogOpen(true)
+  }
+
+  const handleUpdateRetro = async () => {
+    if (!editingRetro || !newTitle.trim()) return
+
+    setIsUpdating(editingRetro.retrospective.id)
+    try {
+      await retrospectiveApi.updateRetrospective(editingRetro.retrospective.id, { title: newTitle })
+      setRetrospectives(
+        retrospectives.map((item) =>
+          item.retrospective.id === editingRetro.retrospective.id
+            ? { ...item, retrospective: { ...item.retrospective, title: newTitle } }
+            : item,
+        ),
+      )
+      setEditDialogOpen(false)
+      setEditingRetro(null)
+      setNewTitle("")
+    } catch (error) {
+      console.error("Error updating retrospective:", error)
+      setError("Failed to update retrospective. Please try again.")
+    } finally {
+      setIsUpdating(null)
+    }
+  }
+
   const handleOpenRetro = (retro: RetrospectiveResponse) => {
     const templateName = retrospectiveApi.getTemplateNameByType(retro.retrospective.template)
     router.push(
       `/retrospective?id=${retro.retrospective.id}&name=${encodeURIComponent(retro.retrospective.title)}&template=${encodeURIComponent(templateName)}`,
     )
+  }
+
+  const handleViewStats = () => {
+    router.push("/stats")
+  }
+
+  const handleActivateRetro = async (retro: RetrospectiveResponse) => {
+    if (window.confirm("Are you sure you want to make this retrospective active again?")) {
+      setIsUpdating(retro.retrospective.id)
+      try {
+        await retrospectiveApi.updateRetrospective(retro.retrospective.id, { isActive: true })
+        setRetrospectives(
+          retrospectives.map((item) =>
+            item.retrospective.id === retro.retrospective.id
+              ? { ...item, retrospective: { ...item.retrospective, isActive: true } }
+              : item,
+          ),
+        )
+      } catch (error) {
+        console.error("Error activating retrospective:", error)
+        setError("Failed to activate retrospective. Please try again.")
+      } finally {
+        setIsUpdating(null)
+      }
+    }
+  }
+
+  const handleArchiveRetro = async (retro: RetrospectiveResponse) => {
+    if (window.confirm("Are you sure you want to archive this retrospective?")) {
+      setIsUpdating(retro.retrospective.id)
+      try {
+        await retrospectiveApi.updateRetrospective(retro.retrospective.id, { isActive: false })
+        setRetrospectives(
+          retrospectives.map((item) =>
+            item.retrospective.id === retro.retrospective.id
+              ? { ...item, retrospective: { ...item.retrospective, isActive: false } }
+              : item,
+          ),
+        )
+      } catch (error) {
+        console.error("Error archiving retrospective:", error)
+        setError("Failed to archive retrospective. Please try again.")
+      } finally {
+        setIsUpdating(null)
+      }
+    }
   }
 
   // Modified to show all retrospectives in "created by me" tab
@@ -262,9 +350,15 @@ export default function DashboardPage() {
               <h1 className="text-2xl font-bold text-gray-900">My Retrospectives</h1>
               <p className="text-sm text-gray-500">Manage and organize your team retrospectives</p>
             </div>
-            <Button onClick={handleCreateRetro} className="mt-4 sm:mt-0 bg-purple-600 hover:bg-purple-700">
-              <Plus className="mr-2 h-4 w-4" /> Create New Retro
-            </Button>
+            <div className="flex gap-2 mt-4 sm:mt-0">
+              <Button onClick={handleViewStats} variant="outline" className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Get All Stats
+              </Button>
+              <Button onClick={handleCreateRetro} className="bg-purple-600 hover:bg-purple-700">
+                <Plus className="mr-2 h-4 w-4" /> Create New Retro
+              </Button>
+            </div>
           </div>
 
           {error && (
@@ -348,6 +442,13 @@ export default function DashboardPage() {
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem onClick={() => handleOpenRetro(retro)}>
                                     Open Retrospective
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleEditRetro(retro)}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit Title
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleArchiveRetro(retro)}>
+                                    Archive Retrospective
                                   </DropdownMenuItem>
                                   <DropdownMenuItem>Share</DropdownMenuItem>
                                   <DropdownMenuSeparator />
@@ -436,104 +537,145 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="divide-y">
-                    {filteredRetros.map((retro) => (
-                      <div key={retro.retrospective.id} className="p-4 hover:bg-gray-50">
-                        <div className="flex flex-col sm:flex-row justify-between">
-                          <div className="flex-1">
-                            <div className="flex justify-between">
-                              <h3 className="font-medium text-gray-900">{retro.retrospective.title}</h3>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => handleOpenRetro(retro)}>
-                                    View Archive
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>Share</DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    className="text-red-600"
-                                    onClick={() => handleDeleteRetro(retro.retrospective.id)}
-                                    disabled={isDeleting === retro.retrospective.id}
-                                  >
-                                    {isDeleting === retro.retrospective.id ? (
-                                      <>
-                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                        Deleting...
-                                      </>
-                                    ) : (
-                                      "Delete"
-                                    )}
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                            <div className="mt-1 text-sm text-gray-500">
-                              {formatDate(retro.retrospective.createdAt)}
-                            </div>
-
-                            <div className="mt-3 flex flex-wrap items-center gap-2">
-                              <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTemplateColorClass(
-                                  retro.retrospective.template,
-                                )}`}
-                              >
-                                {getTemplateLabel(retro.retrospective.template)}
-                              </span>
-
-                              <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(
-                                  retro.retrospective.isActive,
-                                )}`}
-                              >
-                                {retro.retrospective.isActive ? "Active" : "Archived"}
-                              </span>
-                            </div>
-
-                            <div className="mt-3 flex items-center justify-between">
-                              <div className="flex -space-x-2">
-                                {retro.retrospective.assignedUsers &&
-                                  retro.retrospective.assignedUsers.slice(0, 4).map((user, index) => (
-                                    <Avatar key={index} className="h-7 w-7 border-2 border-white">
-                                      {user.avatarUrl ? (
-                                        <AvatarImage src={user.avatarUrl || "/placeholder.svg"} alt={user.userName} />
+                      {filteredRetros.map((retro) => (
+                        <div key={retro.retrospective.id} className="p-4 hover:bg-gray-50">
+                          <div className="flex flex-col sm:flex-row justify-between">
+                            <div className="flex-1">
+                              <div className="flex justify-between">
+                                <h3 className="font-medium text-gray-900">{retro.retrospective.title}</h3>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleOpenRetro(retro)}>
+                                      View Archive
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleEditRetro(retro)}>
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Edit Title
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleActivateRetro(retro)}>
+                                      Make Active Again
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem>Share</DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className="text-red-600"
+                                      onClick={() => handleDeleteRetro(retro.retrospective.id)}
+                                      disabled={isDeleting === retro.retrospective.id}
+                                    >
+                                      {isDeleting === retro.retrospective.id ? (
+                                        <>
+                                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                          Deleting...
+                                        </>
                                       ) : (
-                                        <AvatarFallback className={getAvatarColor(user.userName)}>
-                                          {getAvatarInitial(user.userName)}
-                                        </AvatarFallback>
+                                        "Delete"
                                       )}
-                                    </Avatar>
-                                  ))}
-                                {retro.retrospective.assignedUsers && retro.retrospective.assignedUsers.length > 4 && (
-                                  <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-xs font-medium">
-                                    +{retro.retrospective.assignedUsers.length - 4}
-                                  </div>
-                                )}
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                              <div className="mt-1 text-sm text-gray-500">
+                                {formatDate(retro.retrospective.createdAt)}
                               </div>
 
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                                onClick={() => handleOpenRetro(retro)}
-                              >
-                                View Archive →
-                              </Button>
+                              <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <span
+                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTemplateColorClass(
+                                    retro.retrospective.template,
+                                  )}`}
+                                >
+                                  {getTemplateLabel(retro.retrospective.template)}
+                                </span>
+
+                                <span
+                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(
+                                    retro.retrospective.isActive,
+                                  )}`}
+                                >
+                                  {retro.retrospective.isActive ? "Active" : "Archived"}
+                                </span>
+                              </div>
+
+                              <div className="mt-3 flex items-center justify-between">
+                                <div className="flex -space-x-2">
+                                  {retro.retrospective.assignedUsers &&
+                                    retro.retrospective.assignedUsers.slice(0, 4).map((user, index) => (
+                                      <Avatar key={index} className="h-7 w-7 border-2 border-white">
+                                        {user.avatarUrl ? (
+                                          <AvatarImage src={user.avatarUrl || "/placeholder.svg"} alt={user.userName} />
+                                        ) : (
+                                          <AvatarFallback className={getAvatarColor(user.userName)}>
+                                            {getAvatarInitial(user.userName)}
+                                          </AvatarFallback>
+                                        )}
+                                      </Avatar>
+                                    ))}
+                                  {retro.retrospective.assignedUsers && retro.retrospective.assignedUsers.length > 4 && (
+                                    <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-xs font-medium">
+                                      +{retro.retrospective.assignedUsers.length - 4}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                  onClick={() => handleOpenRetro(retro)}
+                                >
+                                  View Archive →
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 )}
               </TabsContent>
-            </Tabs>
+              </Tabs>
           </div>
         </div>
       </main>
+
+      {/* Edit Retrospective Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Retrospective</DialogTitle>
+            <DialogDescription>Change the title of your retrospective.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder="Enter retrospective title"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateRetro}
+              disabled={isUpdating === editingRetro?.retrospective.id || !newTitle.trim()}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {isUpdating === editingRetro?.retrospective.id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
