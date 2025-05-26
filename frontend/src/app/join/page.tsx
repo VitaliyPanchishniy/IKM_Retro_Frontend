@@ -1,146 +1,167 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Loader2 } from "lucide-react"
+import { retrospectiveApi } from "@/lib/api-service"
 import Header from "@/components/Header"
 
 export default function JoinPage() {
   const router = useRouter()
-  const [boardCode, setBoardCode] = useState("")
-  const [displayName, setDisplayName] = useState("")
-  const [selectedAvatar, setSelectedAvatar] = useState<number | null>(null)
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const searchParams = useSearchParams()
+  const codeFromUrl = searchParams.get("code") || ""
 
-  const avatars = [
-    { id: 1, emoji: "🐱" },
-    { id: 2, emoji: "🐶" },
-    { id: 3, emoji: "🦊" },
-    { id: 4, emoji: "🐻" },
-  ]
+  const [isLoading, setIsLoading] = useState(true)
+  const [isJoining, setIsJoining] = useState(false)
+  const [code, setCode] = useState(codeFromUrl)
+  const [error, setError] = useState<string | null>(null)
+  const [inviteDetails, setInviteDetails] = useState<any>(null)
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {}
+  // Check if user is logged in and if we have a code in the URL
+  useEffect(() => {
+    const checkAuthAndCode = async () => {
+      const storedUser = localStorage.getItem("user")
+      if (!storedUser) {
+        router.push(`/login?redirect=/join${codeFromUrl ? `?code=${codeFromUrl}` : ""}`)
+        return
+      }
 
-    if (!boardCode.trim()) {
-      newErrors.boardCode = "Board code is required"
+      try {
+        const userData = JSON.parse(storedUser)
+        if (!userData.isLoggedIn) {
+          router.push(`/login?redirect=/join${codeFromUrl ? `?code=${codeFromUrl}` : ""}`)
+          return
+        }
+
+        // If we have a code in the URL, try to get the invite details
+        if (codeFromUrl) {
+          try {
+            const invite = await retrospectiveApi.getInviteByCode(codeFromUrl)
+            setInviteDetails(invite)
+          } catch (error) {
+            console.error("Error fetching invite details:", error)
+            setError("Invalid or expired invite code. Please check and try again.")
+          }
+        }
+
+        setIsLoading(false)
+      } catch (e) {
+        console.error("Error parsing user data:", e)
+        router.push(`/login?redirect=/join${codeFromUrl ? `?code=${codeFromUrl}` : ""}`)
+      }
     }
 
-    if (!displayName.trim()) {
-      newErrors.displayName = "Display name is required"
-    }
+    checkAuthAndCode()
+  }, [router, codeFromUrl])
 
-    if (selectedAvatar === null) {
-      newErrors.avatar = "Please select an avatar"
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
-
-  const handleJoinBoard = () => {
-    if (!validateForm()) {
+  const handleJoin = async () => {
+    if (!code.trim()) {
+      setError("Please enter an invite code")
       return
     }
 
-    // In a real app, we would validate the board code
-    // For demo purposes, we'll just redirect to a mock board
-    router.push("/retrospective?name=Team%20Retrospective&template=glad-sad-mad")
+    setIsJoining(true)
+    setError(null)
+
+    try {
+      // Join the retrospective via API
+      const retrospective = await retrospectiveApi.joinRetrospective(code)
+
+      // Navigate to the retrospective page
+      router.push(
+        `/retrospective?id=${retrospective.id}&name=${encodeURIComponent(retrospective.title)}&template=${retrospectiveApi.getTemplateNameByType(retrospective.template)}`,
+      )
+    } catch (error) {
+      console.error("Error joining retrospective:", error)
+      setError("Failed to join retrospective. The code may be invalid or expired.")
+    } finally {
+      setIsJoining(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <h2 className="text-xl font-medium mb-2">Loading...</h2>
+          <p className="text-gray-500">Please wait while we prepare to join the retrospective.</p>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-gray-100">
       <Header />
-      <div className="flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="p-6">
-            <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold">Join a Retro Board</h1>
-              <p className="text-gray-600 text-sm">Enter the code to join your team's board</p>
-            </div>
+      <div className="max-w-3xl mx-auto p-4">
+        
 
+        <main className="bg-white rounded-lg shadow-sm p-8 mt-8">
+          <h1 className="text-2xl font-bold mb-8">Join a Retrospective</h1>
+
+          {inviteDetails ? (
+            <div className="space-y-6">
+              <div className="bg-green-50 p-4 rounded-md border border-green-200">
+                <h2 className="text-lg font-medium text-green-800 mb-2">Invite Found!</h2>
+                <p className="text-green-700">
+                  You're about to join the retrospective:{" "}
+                  <span className="font-medium">{inviteDetails.retrospective?.title || "Untitled Retrospective"}</span>
+                </p>
+              </div>
+
+              <Button className="w-full bg-purple-600 hover:bg-purple-700" onClick={handleJoin} disabled={isJoining}>
+                {isJoining ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Joining...
+                  </>
+                ) : (
+                  "Join Retrospective"
+                )}
+              </Button>
+            </div>
+          ) : (
             <div className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="board-code">Board Code</Label>
+                <Label htmlFor="invite-code">Enter Invite Code</Label>
                 <Input
-                  id="board-code"
-                  placeholder="Enter 8-digit code"
-                  value={boardCode}
-                  onChange={(e) => setBoardCode(e.target.value)}
+                  id="invite-code"
+                  placeholder="e.g. ABC123"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className="text-center text-lg font-mono"
                 />
-                {errors.boardCode && <p className="text-sm text-red-500">{errors.boardCode}</p>}
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  Don't have a code? Ask your facilitator
-                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="display-name">Display Name</Label>
-                <Input
-                  id="display-name"
-                  placeholder="Your display name"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                />
-                {errors.displayName && <p className="text-sm text-red-500">{errors.displayName}</p>}
-              </div>
+              {error && <div className="bg-red-50 p-3 rounded-md text-red-500 text-sm">{error}</div>}
 
-              <div className="space-y-2">
-                <Label>Choose Avatar</Label>
-                <div className="flex gap-3 justify-center">
-                  {avatars.map((avatar) => (
-                    <button
-                      key={avatar.id}
-                      type="button"
-                      className={`w-12 h-12 rounded-full flex items-center justify-center text-xl ${
-                        selectedAvatar === avatar.id
-                          ? "bg-purple-100 border-2 border-purple-600"
-                          : "bg-gray-100 hover:bg-gray-200"
-                      }`}
-                      onClick={() => setSelectedAvatar(avatar.id)}
-                    >
-                      {avatar.emoji}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    className="w-12 h-12 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-400"
-                  >
-                    +
-                  </button>
-                </div>
-                {errors.avatar && <p className="text-sm text-red-500 text-center">{errors.avatar}</p>}
-              </div>
-
-              <Button className="w-full bg-purple-600 hover:bg-purple-700" onClick={handleJoinBoard}>
-                Join Board
+              <Button
+                className="w-full bg-purple-600 hover:bg-purple-700"
+                onClick={handleJoin}
+                disabled={isJoining || !code.trim()}
+              >
+                {isJoining ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Joining...
+                  </>
+                ) : (
+                  "Join Retrospective"
+                )}
               </Button>
 
-              <div className="text-center">
-                <Link href="/" className="text-sm text-purple-600 hover:underline">
-                  Back to Main Page
-                </Link>
+              <div className="text-center text-sm text-gray-500">
+                <p>Don't have an invite code? Ask your team member to share one with you.</p>
               </div>
             </div>
-          </div>
-        </div>
+          )}
+        </main>
+
+        <footer className="text-center text-sm text-gray-500 py-4">© 2025 RetroIKM. All rights reserved.</footer>
       </div>
     </div>
   )

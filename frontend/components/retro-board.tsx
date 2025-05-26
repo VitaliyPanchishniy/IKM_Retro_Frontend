@@ -7,7 +7,14 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { MoreVertical, Plus, MessageSquare, ThumbsUp, Trash2 } from "lucide-react"
+import { MoreVertical, Plus, MessageSquare, ThumbsUp, Trash2, MoveRight } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
 
 interface RetroItem {
   id: string
@@ -18,6 +25,7 @@ interface RetroItem {
     text: string
     author: string
   }[]
+  userId: string
 }
 
 interface RetroColumn {
@@ -33,21 +41,24 @@ interface RetroItemProps {
   columnId: string
   onVote: (columnId: string, itemId: string) => void
   onAddComment: (columnId: string, itemId: string, comment: string) => void
+  onMoveToAction?: (columnId: string, itemId: string) => void
   currentStep: number
 }
 
-const SortableRetroItem = ({ item, columnId, onVote, onAddComment, currentStep }: RetroItemProps) => {
+const SortableRetroItem = ({ item, columnId, onVote, onAddComment, onMoveToAction, currentStep }: RetroItemProps) => {
   const [newComment, setNewComment] = useState("")
   const [showComments, setShowComments] = useState(false)
   const [hasVoted, setHasVoted] = useState(false)
 
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `${columnId}:${item.id}`,
   })
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : 1,
   }
 
   const handleAddComment = () => {
@@ -61,14 +72,47 @@ const SortableRetroItem = ({ item, columnId, onVote, onAddComment, currentStep }
     onVote(columnId, item.id)
   }
 
+  const handleMoveToAction = () => {
+    if (onMoveToAction) {
+      onMoveToAction(columnId, item.id)
+    }
+  }
+
   return (
-    <Card ref={setNodeRef} style={style} className="mb-3 cursor-move" {...attributes} {...listeners}>
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className={`mb-3 ${isDragging ? "cursor-grabbing" : "cursor-grab"} relative ${currentStep === 1 && item.userId !== "current-user-id" ? "blur-sm" : ""}`}
+      {...attributes}
+      {...listeners}
+    >
       <CardHeader className="p-3 pb-0 flex flex-row items-start justify-between">
         <div className="text-sm">{item.content}</div>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <MoreVertical className="h-4 w-4" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem>Edit</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleMoveToAction}>
+              <MoveRight className="h-4 w-4 mr-2" />
+              Move to Action Items
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-red-600">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </CardHeader>
+      {currentStep === 1 && item.userId === "current-user-id" && (
+        <div className="absolute top-1 right-1">
+          <span className="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded-full">Your card</span>
+        </div>
+      )}
       <CardContent className="p-3 pt-1">
         {showComments && item.comments.length > 0 && (
           <div className="mt-2 space-y-2">
@@ -147,10 +191,19 @@ interface RetroBoardProps {
   onAddItem: (columnId: string, content: string) => void
   onVote: (columnId: string, itemId: string) => void
   onAddComment: (columnId: string, itemId: string, comment: string) => void
+  onMoveToAction?: (columnId: string, itemId: string) => void
   currentStep: number
 }
 
-export function RetroBoard({ columns, items, onAddItem, onVote, onAddComment, currentStep }: RetroBoardProps) {
+export function RetroBoard({
+  columns,
+  items,
+  onAddItem,
+  onVote,
+  onAddComment,
+  onMoveToAction,
+  currentStep,
+}: RetroBoardProps) {
   const [newItems, setNewItems] = useState<Record<string, string>>({})
 
   const handleAddItem = (columnId: string) => {
@@ -205,6 +258,7 @@ export function RetroBoard({ columns, items, onAddItem, onVote, onAddComment, cu
                 columnId={column.id}
                 onVote={onVote}
                 onAddComment={onAddComment}
+                onMoveToAction={onMoveToAction}
                 currentStep={currentStep}
               />
             ))}

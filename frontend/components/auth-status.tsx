@@ -16,7 +16,8 @@ import { Settings, LayoutGrid } from "lucide-react"
 import axios from "axios"
 
 interface User {
-  name: string
+  id?: string
+  userName?: string
   email: string
   isLoggedIn: boolean
 }
@@ -32,15 +33,11 @@ export function AuthStatus() {
       if (storedUser) {
         try {
           const userData = JSON.parse(storedUser)
-          if (
-            userData.isLoggedIn &&
-            typeof userData.name === "string" &&
-            typeof userData.email === "string"
-          ) {
-            setUser(userData)
-          } else {
-            setUser(null)
-          }
+        if (userData.isLoggedIn && typeof userData.userName === "string" && typeof userData.email === "string") {
+          setUser(userData)
+        } else {
+          setUser(null)
+        }
         } catch (e) {
           console.error("Error parsing user data:", e)
           setUser(null)
@@ -120,7 +117,7 @@ export function AuthStatus() {
         <Button variant="ghost" className="relative h-10 w-10 rounded-full">
           <Avatar className="h-10 w-10">
             <AvatarFallback className="bg-purple-100 text-purple-700">
-              {(user.name?.charAt(0) || "?").toUpperCase()}
+              {(user.userName?.charAt(0) || "?").toUpperCase()}
             </AvatarFallback>
           </Avatar>
         </Button>
@@ -128,7 +125,7 @@ export function AuthStatus() {
       <DropdownMenuContent align="end">
         <div className="flex items-center justify-start gap-2 p-2">
           <div className="flex flex-col space-y-1 leading-none">
-            <p className="font-medium">{user.name || "Unknown User"}</p>
+            <p className="font-medium">{user.userName || "Unknown User"}</p>
             <p className="text-sm text-muted-foreground">{user.email || "No Email"}</p>
           </div>
         </div>
