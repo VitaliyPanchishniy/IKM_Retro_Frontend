@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { motion } from "framer-motion"
+import Header from "@/components/Header"
 
 export default function AboutPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -42,39 +43,7 @@ export default function AboutPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
-      <header className="border-b py-4">
-        <div className="container flex items-center justify-between px-4 md:px-6">
-          <Link href="/" className="flex items-center gap-1">
-            <span className="text-xl font-bold text-indigo-700">
-              Retro<span className="text-purple-600">IKM</span>
-            </span>
-          </Link>
-          <nav className="flex items-center gap-6">
-            <Link href="/about" className="text-sm font-medium text-purple-600 border-b-2 border-purple-600">
-              About
-            </Link>
-            <Link href="/pricing" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-              Pricing
-            </Link>
-            {isLoggedIn ? (
-              <Link href="/dashboard">
-                <Button variant="ghost" className="text-sm font-medium">
-                  Dashboard
-                </Button>
-              </Link>
-            ) : (
-              <>
-                <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-                  Log in
-                </Link>
-                <Link href="/signup">
-                  <Button className="bg-purple-600 hover:bg-purple-700">Sign up</Button>
-                </Link>
-              </>
-            )}
-          </nav>
-        </div>
-      </header>
+      <Header />
 
       <main className="flex-1">
         <motion.section

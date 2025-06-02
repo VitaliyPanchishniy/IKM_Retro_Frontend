@@ -90,15 +90,6 @@ export default function SignupPage() {
       // For demo purposes, we'll simulate a delay and redirect
       await new Promise((resolve) => setTimeout(resolve, 1500))
 
-      // Store user data in localStorage (in a real app, this would be handled by a proper auth system)
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          isLoggedIn: true,
-        }),
-      )
 
       const response = await axios.post('http://localhost:5014/api/account/register', {
         email: formData.email,
@@ -106,10 +97,25 @@ export default function SignupPage() {
         userName: formData.name, 
       });
 
-      console.log('Registration success', response.data);
-      localStorage.setItem('accessToken', response.data.accessToken);
-      localStorage.setItem('refreshToken', response.data.refreshToken);
+      const accessToken = response.data.accessToken;
+      const refreshToken = response.data.refreshToken;
 
+      console.log('Registration success', response.data);
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+
+      // Отримуємо повні дані користувача
+      const userResponse = await axios.get('http://localhost:5014/api/account/self', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      // Зберігаємо користувача в localStorage
+      localStorage.setItem('user', JSON.stringify({
+        ...userResponse.data,
+        isLoggedIn: true,
+      }));
       // Redirect to the specified path or dashboard
       router.push(redirectPath || "/dashboard")
     } catch (error) {

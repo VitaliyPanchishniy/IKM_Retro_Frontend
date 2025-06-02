@@ -16,16 +16,19 @@ export function useRetroVoting(retroId: string, currentStep: number, user: any) 
     if (retroId && user?.id) {
       const storedVotes = localStorage.getItem(`retro_${retroId}_user_${user.id}_remaining_votes`)
       const storedUserVotes = localStorage.getItem(`retro_${retroId}_user_${user.id}_votes_per_item`)
-
+      console.log('Read remainingVotes from localStorage:', storedVotes)
+      console.log('Read userVotesPerItem from localStorage:', storedUserVotes)
+  
       if (storedVotes) {
         setRemainingVotes(Number.parseInt(storedVotes, 10))
       }
-
+  
       if (storedUserVotes) {
         setUserVotesPerItem(JSON.parse(storedUserVotes))
       }
     }
   }, [retroId, user?.id])
+  
 
   // Save user votes and remaining votes to localStorage
   useEffect(() => {

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, ArrowLeft, BarChart3, TrendingUp, Users, Target } from "lucide-react"
 import { retrospectiveApi, TemplateType } from "@/lib/api-service"
+import Header from "@/components/Header"
 
 interface StatsData {
   totalCards: number
@@ -14,15 +15,15 @@ interface StatsData {
   totalLikes: number
   totalActionItems: number
   completedActionItems: number
-  avgActionItemsPerBoard: number
-  avgCompletedActionItemsPerBoard: number
-  avgLikesPerCard: number
-  avgCommentsPerCard: number
-  avgCardsPerBoard: number
-  avgCommentsPerBoard: number
-  avgLikesPerBoard: number
-  completionPercentage: number
-  templatePopularity: { template: TemplateType; count: number; name: string }[]
+  averageActionItemsPerBoard: number
+  averageCompletedActionItemsPerBoard: number
+  averageLikesPerCard: number
+  averageCommentsPerCard: number
+  averageCardsPerBoard: number
+  averageCommentsPerBoard: number
+  averageLikesPerBoard: number
+  actionItemCompletionRate: number
+  templatePopularity: Record<string, number>
 }
 
 export default function StatsPage() {
@@ -61,107 +62,14 @@ export default function StatsPage() {
     setError(null)
 
     try {
-      // Get all retrospectives
-      const retrospectives = await retrospectiveApi.getAllRetrospectives()
-
-      let totalCards = 0
-      let totalComments = 0
-      let totalLikes = 0
-      let totalActionItems = 0
-      let completedActionItems = 0
-      const templateCounts: Record<TemplateType, number> = {
-        [TemplateType.StartStopContinue]: 0,
-        [TemplateType.GladSadMad]: 0,
-        [TemplateType.StartStopContinueChange]: 0,
-        [TemplateType.KeepStopLessMoreStart]: 0,
-      }
-
-      // Calculate stats from retrospectives
-      for (const retro of retrospectives) {
-        // Count template usage
-        templateCounts[retro.retrospective.template]++
-
-        // Count cards from groups
-        if (retro.retrospective.groups) {
-          for (const group of retro.retrospective.groups) {
-            if (group.groupItems) {
-              totalCards += group.groupItems.length
-
-              // Count comments and likes for each item
-              for (const item of group.groupItems) {
-                // For demo purposes, we'll simulate some data
-                // In real implementation, you'd get this from the API
-                totalComments += Math.floor(Math.random() * 3) // 0-2 comments per item
-                totalLikes += Math.floor(Math.random() * 5) // 0-4 likes per item
-              }
-            }
-          }
-        }
-
-        // Get action items for this retrospective
-        try {
-          const actionItems = await retrospectiveApi.getActionItems(retro.retrospective.id)
-          totalActionItems += actionItems.length
-          completedActionItems += actionItems.filter((item) => item.status === 2).length // Status 2 = Completed
-        } catch (error) {
-          console.error(`Error loading action items for retro ${retro.retrospective.id}:`, error)
-        }
-      }
-
-      const totalBoards = retrospectives.length
-      const avgActionItemsPerBoard = totalBoards > 0 ? totalActionItems / totalBoards : 0
-      const avgCompletedActionItemsPerBoard = totalBoards > 0 ? completedActionItems / totalBoards : 0
-      const avgLikesPerCard = totalCards > 0 ? totalLikes / totalCards : 0
-      const avgCommentsPerCard = totalCards > 0 ? totalComments / totalCards : 0
-      const avgCardsPerBoard = totalBoards > 0 ? totalCards / totalBoards : 0
-      const avgCommentsPerBoard = totalBoards > 0 ? totalComments / totalBoards : 0
-      const avgLikesPerBoard = totalBoards > 0 ? totalLikes / totalBoards : 0
-      const completionPercentage = totalActionItems > 0 ? (completedActionItems / totalActionItems) * 100 : 0
-
-      const templatePopularity = Object.entries(templateCounts)
-        .map(([template, count]) => ({
-          template: Number(template) as TemplateType,
-          count,
-          name: getTemplateName(Number(template) as TemplateType),
-        }))
-        .sort((a, b) => b.count - a.count)
-
-      setStats({
-        totalCards,
-        totalComments,
-        totalLikes,
-        totalActionItems,
-        completedActionItems,
-        avgActionItemsPerBoard,
-        avgCompletedActionItemsPerBoard,
-        avgLikesPerCard,
-        avgCommentsPerCard,
-        avgCardsPerBoard,
-        avgCommentsPerBoard,
-        avgLikesPerBoard,
-        completionPercentage,
-        templatePopularity,
-      })
+      // Отримуємо статистику з бекенду
+      const stats = await retrospectiveApi.getRetrospectiveStats()
+      setStats(stats)
     } catch (error) {
       console.error("Error loading stats:", error)
       setError("Failed to load statistics. Please try again later.")
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const getTemplateName = (template: TemplateType): string => {
-    switch (template) {
-      case TemplateType.StartStopContinue:
-        return "Start / Stop / Continue"
-      case TemplateType.GladSadMad:
-        return "Glad / Sad / Mad"
-      case TemplateType.StartStopContinueChange:
-        return "Start / Stop / Continue / Change"
-      case TemplateType.KeepStopLessMoreStart:
-        return "Keep / Stop / Less / More / Start"
-      default:
-        return "Custom Template"
     }
   }
 
@@ -175,6 +83,14 @@ export default function StatsPage() {
 
   const formatPercentage = (num: number): string => {
     return `${num.toFixed(1)}%`
+  }
+
+  // Для відображення популярності шаблонів:
+  const templateLabels: Record<string, string> = {
+    StartStopContinue: "Start / Stop / Continue",
+    GladSadMad: "Glad / Sad / Mad",
+    StartStopContinueChange: "Start / Stop / Continue / Change",
+    KeepAddLessMore: "Keep / Add / Less / More",
   }
 
   if (isLoading) {
@@ -191,23 +107,8 @@ export default function StatsPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <header className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center">
-              <Link href="/" className="flex items-center gap-1">
-                <span className="text-xl font-bold text-indigo-700">
-                  Retro<span className="text-purple-600">IKM</span>
-                </span>
-              </Link>
-            </div>
-            <Button variant="outline" onClick={() => router.push("/dashboard")} className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
-            </Button>
-          </div>
-        </div>
-      </header>
+      <Header />
+      
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
@@ -297,12 +198,12 @@ export default function StatsPage() {
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-green-600 h-2 rounded-full"
-                        style={{ width: `${stats.completionPercentage}%` }}
+                        style={{ width: `${stats.actionItemCompletionRate}%` }}
                       ></div>
                     </div>
                     <div className="text-center">
                       <span className="text-2xl font-bold text-green-600">
-                        {formatPercentage(stats.completionPercentage)}
+                        {formatPercentage(stats.actionItemCompletionRate)}
                       </span>
                       <p className="text-xs text-muted-foreground">Completion rate</p>
                     </div>
@@ -317,11 +218,11 @@ export default function StatsPage() {
                 <CardContent>
                   <div className="space-y-4">
                     <div>
-                      <div className="text-2xl font-bold">{formatDecimal(stats.avgActionItemsPerBoard)}</div>
+                      <div className="text-2xl font-bold">{formatDecimal(stats.averageActionItemsPerBoard)}</div>
                       <p className="text-xs text-muted-foreground">Per board</p>
                     </div>
                     <div>
-                      <div className="text-2xl font-bold">{formatDecimal(stats.avgCompletedActionItemsPerBoard)}</div>
+                      <div className="text-2xl font-bold">{formatDecimal(stats.averageCompletedActionItemsPerBoard)}</div>
                       <p className="text-xs text-muted-foreground">Completed per board</p>
                     </div>
                   </div>
@@ -335,11 +236,11 @@ export default function StatsPage() {
                 <CardContent>
                   <div className="space-y-4">
                     <div>
-                      <div className="text-lg font-semibold">{formatDecimal(stats.avgLikesPerCard)}</div>
+                      <div className="text-lg font-semibold">{formatDecimal(stats.averageLikesPerCard)}</div>
                       <p className="text-xs text-muted-foreground">Average likes per card</p>
                     </div>
                     <div>
-                      <div className="text-lg font-semibold">{formatDecimal(stats.avgCommentsPerCard)}</div>
+                      <div className="text-lg font-semibold">{formatDecimal(stats.averageCommentsPerCard)}</div>
                       <p className="text-xs text-muted-foreground">Average comments per card</p>
                     </div>
                   </div>
@@ -354,7 +255,7 @@ export default function StatsPage() {
                   <CardTitle className="text-lg">Average Cards per Board</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">{formatDecimal(stats.avgCardsPerBoard)}</div>
+                  <div className="text-3xl font-bold">{formatDecimal(stats.averageCardsPerBoard)}</div>
                   <p className="text-sm text-muted-foreground">Cards created per retrospective</p>
                 </CardContent>
               </Card>
@@ -364,7 +265,7 @@ export default function StatsPage() {
                   <CardTitle className="text-lg">Average Comments per Board</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">{formatDecimal(stats.avgCommentsPerBoard)}</div>
+                  <div className="text-3xl font-bold">{formatDecimal(stats.averageCommentsPerBoard)}</div>
                   <p className="text-sm text-muted-foreground">Comments per retrospective</p>
                 </CardContent>
               </Card>
@@ -374,7 +275,7 @@ export default function StatsPage() {
                   <CardTitle className="text-lg">Average Likes per Board</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">{formatDecimal(stats.avgLikesPerBoard)}</div>
+                  <div className="text-3xl font-bold">{formatDecimal(stats.averageLikesPerBoard)}</div>
                   <p className="text-sm text-muted-foreground">Votes per retrospective</p>
                 </CardContent>
               </Card>
@@ -388,33 +289,35 @@ export default function StatsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {stats.templatePopularity.map((template, index) => (
-                    <div key={template.template} className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-600 font-semibold text-sm">
-                          {index + 1}
+                  {Object.entries(stats.templatePopularity)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([key, count], index) => (
+                      <div key={key} className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-600 font-semibold text-sm">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="font-medium">{templateLabels[key] || key}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {count} {count === 1 ? "board" : "boards"}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium">{template.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {template.count} {template.count === 1 ? "board" : "boards"}
-                          </p>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-32 bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-purple-600 h-2 rounded-full"
+                              style={{
+                                width: `${Object.values(stats.templatePopularity).length > 0 ? (count / Math.max(...Object.values(stats.templatePopularity))) * 100 : 0}%`,
+                              }}
+                            ></div>
+                          </div>
+                          <span className="text-sm font-medium w-12 text-right">{count}</span>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-32 bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-purple-600 h-2 rounded-full"
-                            style={{
-                              width: `${stats.templatePopularity.length > 0 ? (template.count / Math.max(...stats.templatePopularity.map((t) => t.count))) * 100 : 0}%`,
-                            }}
-                          ></div>
-                        </div>
-                        <span className="text-sm font-medium w-12 text-right">{template.count}</span>
-                      </div>
-                    </div>
-                  ))}
-                  {stats.templatePopularity.length === 0 && (
+                    ))}
+                  {Object.keys(stats.templatePopularity).length === 0 && (
                     <p className="text-center text-muted-foreground py-8">No retrospectives found</p>
                   )}
                 </div>

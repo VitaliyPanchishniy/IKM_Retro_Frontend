@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
 import API from '../../../lib/api';
+import Header from "@/components/Header"
 
 export default function CreatePage() {
   const router = useRouter()
@@ -140,12 +141,13 @@ export default function CreatePage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
+      <Header />
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <header className="flex justify-between items-center py-4">
+        {/* <header className="flex justify-between items-center py-4">
           <Link href="/" className="text-2xl font-bold text-indigo-700">
             Retro<span className="text-purple-600">IKM</span>
           </Link>
-        </header>
+        </header> */}
 
         <main className="bg-white rounded-xl shadow p-6 mt-6">
           <h1 className="text-2xl font-bold mb-6">Start a New Retro</h1>
@@ -155,7 +157,7 @@ export default function CreatePage() {
               <Label htmlFor="retro-name">Retro Name</Label>
               <Input
                 id="retro-name"
-                placeholder="e.g. Sprint 23 Retrospective"
+                placeholder="e.g. Sprint 25 Retrospective"
                 value={retroName}
                 onChange={(e) => setRetroName(e.target.value)}
               />

@@ -67,14 +67,27 @@ export default function LoginPage() {
         email: formData.email,
         password: formData.password,
       });
-  
-      console.log('Login success', response.data);
-      localStorage.setItem('accessToken', response.data.accessToken);
-      localStorage.setItem('refreshToken', response.data.refreshToken);
+
+      const accessToken = response.data.accessToken;
+      const refreshToken = response.data.refreshToken;
+
+      // Зберігаємо токени
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+
+      // Отримуємо повні дані користувача
+      const userResponse = await axios.get('http://localhost:5014/api/account/self', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      // Зберігаємо користувача в localStorage
       localStorage.setItem('user', JSON.stringify({
-        email: "fff",
+        ...userResponse.data,
         isLoggedIn: true,
       }));
+      
   
       router.push(redirectPath || "/dashboard");
     } catch (error: any) {

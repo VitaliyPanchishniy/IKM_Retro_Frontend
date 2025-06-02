@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -91,9 +93,20 @@ export function RetroItem({
   getUserName,
   isCreator,
 }: RetroItemProps) {
+  const isEditing = editingItemId === item.id
+  const isCommenting = showComments[item.id]
+
+  // Disable dragging when editing or commenting
+  const isDragDisabled = isEditing || isCommenting || (currentStep === 1 && item.userId !== user?.id)
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `${columnId}:${item.id}`,
-    disabled: currentStep === 1 && item.userId !== user?.id,
+    disabled: isDragDisabled,
+    data: {
+      type: "item",
+      item,
+      columnId,
+    },
   })
 
   const style = {
@@ -106,13 +119,23 @@ export function RetroItem({
   const creatorName = item.userId ? getUserName(item.userId) : "Anonymous"
   const isBlurred = shouldBlurItem(item)
 
+  // Handle key events to prevent space from triggering drag
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === " " && (isEditing || isCommenting)) {
+      e.stopPropagation()
+    }
+  }
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      className={`bg-white border rounded-md shadow-sm relative ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+      className={`bg-white border rounded-md shadow-sm relative ${
+        isDragDisabled ? "" : isDragging ? "cursor-grabbing" : "cursor-grab"
+      }`}
+      onKeyDown={handleKeyDown}
+      {...(!isDragDisabled ? attributes : {})}
+      {...(!isDragDisabled ? listeners : {})}
     >
       {/* Blur overlay for other users' cards on step 1 */}
       {isBlurred && (
@@ -173,6 +196,14 @@ export function RetroItem({
               onChange={(e) => setEditingContent(e.target.value)}
               className="text-sm"
               autoFocus
+              onKeyDown={(e) => {
+                e.stopPropagation() // Prevent drag events
+                if (e.key === "Enter") {
+                  onSaveEditing()
+                } else if (e.key === "Escape") {
+                  onCancelEditing()
+                }
+              }}
             />
             <div className="flex justify-end gap-2">
               <Button size="sm" variant="outline" className="h-7 px-2" onClick={onCancelEditing}>
@@ -261,6 +292,7 @@ export function RetroItem({
               value={newComments[item.id] || ""}
               onChange={(e) => setNewComments((prev) => ({ ...prev, [item.id]: e.target.value }))}
               onKeyDown={(e) => {
+                e.stopPropagation() // Prevent drag events
                 if (e.key === "Enter") {
                   onAddComment(columnId, item.id)
                 }

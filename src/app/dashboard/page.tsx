@@ -1,5 +1,5 @@
 "use client"
-
+import Header from "@/components/Header"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -267,81 +267,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <header className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center">
-              <Link href="/" className="flex items-center gap-1">
-                <span className="text-xl font-bold text-indigo-700">
-                  Retro<span className="text-purple-600">IKM</span>
-                </span>
-              </Link>
-              <nav className="ml-10 flex space-x-4">
-                <Link
-                  href="/dashboard"
-                  className="px-3 py-2 text-sm font-medium text-purple-600 border-b-2 border-purple-600"
-                >
-                  Dashboard
-                </Link>
-                <Link href="/templates" className="px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">
-                  Templates
-                </Link>
-                <Link href="/teams" className="px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">
-                  Teams
-                </Link>
-              </nav>
-            </div>
-            <div className="flex items-center">
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                  />
-                </svg>
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-full ml-2">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-purple-100 text-purple-700">
-                        {user?.name?.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <div className="flex items-center justify-start gap-2 p-2">
-                    <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium">{user?.name}</p>
-                      <p className="text-sm text-muted-foreground">{user?.email}</p>
-                    </div>
-                  </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings">Account Settings</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/help">Help & Support</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/logout">Log out</Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 sm:px-0">
@@ -412,7 +338,7 @@ export default function DashboardPage() {
                     value="archived"
                     className="rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-purple-600 data-[state=active]:text-purple-600 data-[state=active]:shadow-none"
                   >
-                    Archived
+                    Finished
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -597,7 +523,7 @@ export default function DashboardPage() {
                                     retro.retrospective.isActive,
                                   )}`}
                                 >
-                                  {retro.retrospective.isActive ? "Active" : "Archived"}
+                                  {retro.retrospective.isActive ? "Active" : "Finished"}
                                 </span>
                               </div>
 
@@ -638,7 +564,7 @@ export default function DashboardPage() {
                   </div>
                 )}
               </TabsContent>
-              </Tabs>
+            </Tabs>
           </div>
         </div>
       </main>

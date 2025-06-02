@@ -35,6 +35,7 @@ import { ConvertDialog } from "@/components/convert-dialog"
 import { ShareDialog } from "@/components/share-dialog"
 import { RetroSteps } from "@/components/retro-steps"
 import { TimerDialog } from "@/components/timer-dialog"
+import { ActionItemsDropZone } from "@/components/action-items-drop-zone"
 
 export default function RetrospectivePage() {
   const router = useRouter()
@@ -108,7 +109,7 @@ export default function RetrospectivePage() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [activeItem, setActiveItem] = useState<GroupItem | null>(null)
 
-  // Set up DnD sensors
+  // Set up DnD sensors with improved settings
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -191,7 +192,6 @@ export default function RetrospectivePage() {
     status: number
     priority: number
     assignedUserId: string
-    details?: string
     description?: string
   }) => {
     if (!convertingItemId) return false
@@ -220,7 +220,6 @@ export default function RetrospectivePage() {
         convertData.description || itemToConvert.content,
         convertData.priority,
         convertData.status,
-        convertData.details,
         convertData.assignedUserId,
       )
 
@@ -229,12 +228,12 @@ export default function RetrospectivePage() {
       }
 
       // Remove the item from the board
-      setColumns((prev) =>
-        prev.map((col) => ({
-          ...col,
-          items: col.items.filter((item) => item.id !== convertingItemId),
-        })),
-      )
+      // setColumns((prev) =>
+      //   prev.map((col) => ({
+      //     ...col,
+      //     items: col.items.filter((item) => item.id !== convertingItemId),
+      //   })),
+      // )
 
       return true
     } catch (error) {
@@ -320,7 +319,7 @@ export default function RetrospectivePage() {
     }
   }
 
-  // DnD handlers
+  // DnD handlers with improved logic
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event
     const [columnId, itemId] = active.id.toString().split(":")
@@ -342,48 +341,49 @@ export default function RetrospectivePage() {
 
     if (!over) return
 
-    const [activeColumnId, activeItemId] = active.id.toString().split(":")
-    const [overColumnId, overItemId] = over.id.toString().split(":")
+    const activeData = active.data.current
+    const overData = over.data.current
 
-    // If dragging over a different column
-    if (activeColumnId !== overColumnId) {
-      setColumns((prev) => {
-        const activeColumn = prev.find((col) => col.id === activeColumnId)
-        const overColumn = prev.find((col) => col.id === overColumnId)
+    // Handle dragging over action items drop zone
+    if (over.id === "action-items-drop-zone") {
+      return // Just visual feedback, actual handling in handleDragEnd
+    }
 
-        if (!activeColumn || !overColumn) return prev
+    // Handle dragging between columns
+    if (activeData?.type === "item" && overData?.type !== "action-items-zone") {
+      const [activeColumnId, activeItemId] = active.id.toString().split(":")
+      const [overColumnId] = over.id.toString().split(":")
 
-        const activeItem = activeColumn.items.find((item) => item.id.toString() === activeItemId)
-        if (!activeItem) return prev
+      // If dragging over a different column
+      if (activeColumnId !== overColumnId) {
+        setColumns((prev) => {
+          const activeColumn = prev.find((col) => col.id === activeColumnId)
+          const overColumn = prev.find((col) => col.id === overColumnId)
 
-        return prev.map((col) => {
-          if (col.id === activeColumnId) {
-            return {
-              ...col,
-              items: col.items.filter((item) => item.id.toString() !== activeItemId),
-            }
-          }
+          if (!activeColumn || !overColumn) return prev
 
-          if (col.id === overColumnId) {
-            if (overItemId) {
-              const overItemIndex = col.items.findIndex((item) => item.id.toString() === overItemId)
-              const newItems = [...col.items]
-              newItems.splice(overItemIndex, 0, { ...activeItem, groupId: col.groupId })
+          const activeItem = activeColumn.items.find((item) => item.id.toString() === activeItemId)
+          if (!activeItem) return prev
+
+          return prev.map((col) => {
+            if (col.id === activeColumnId) {
               return {
                 ...col,
-                items: newItems,
+                items: col.items.filter((item) => item.id.toString() !== activeItemId),
               }
             }
 
-            return {
-              ...col,
-              items: [...col.items, { ...activeItem, groupId: col.groupId }],
+            if (col.id === overColumnId) {
+              return {
+                ...col,
+                items: [...col.items, { ...activeItem, groupId: col.groupId }],
+              }
             }
-          }
 
-          return col
+            return col
+          })
         })
-      })
+      }
     }
   }
 
@@ -395,8 +395,30 @@ export default function RetrospectivePage() {
 
     if (!over) return
 
+    const activeData = active.data.current
+
+    // Handle drop on action items zone
+    if (over.id === "action-items-drop-zone" && activeData?.type === "item") {
+      const item = activeData.item as GroupItem
+
+      // Remove item from board
+      // setColumns((prev) =>
+      //   prev.map((col) => ({
+      //     ...col,
+      //     items: col.items.filter((i) => i.id !== item.id),
+      //   })),
+      // )
+
+      // Open convert dialog with pre-filled content
+      setConvertingItemId(item.id)
+      setEditingContent(item.content)
+      setConvertDialogOpen(true)
+      return
+    }
+
+    // Handle normal column drops
     const [activeColumnId, activeItemId] = active.id.toString().split(":")
-    const [overColumnId, overItemId] = over.id.toString().split(":")
+    const [overColumnId] = over.id.toString().split(":")
 
     // If dropped in a different column
     if (activeColumnId !== overColumnId) {
@@ -410,9 +432,7 @@ export default function RetrospectivePage() {
       try {
         const moveItemRequest: MoveGroupItemRequest = {
           newGroupId: targetColumn.groupId,
-          orderPosition: overItemId
-            ? targetColumn.items.findIndex((item) => item.id.toString() === overItemId)
-            : targetColumn.items.length,
+          orderPosition: targetColumn.items.length,
         }
 
         await retrospectiveApi.moveGroupItem(retroId, itemId, moveItemRequest)
@@ -472,9 +492,11 @@ export default function RetrospectivePage() {
         user={user}
         onShareClick={() => setShareDialogOpen(true)}
         onTimerClick={() => setTimerDialogOpen(true)}
+        currentStep={currentStep}
+        onStepChange={handleStepChange}
       />
 
-      <RetroSteps currentStep={currentStep} onStepChange={handleStepChange} />
+     
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {error && (
@@ -554,11 +576,14 @@ export default function RetrospectivePage() {
           {/* Drag overlay for the currently dragged item */}
           <DragOverlay>
             {activeId && activeItem && (
-              <div className="bg-white border rounded-md shadow-sm p-3 w-full max-w-xs opacity-80">
+              <div className="bg-white border rounded-md shadow-lg p-3 w-full max-w-xs opacity-90 rotate-3">
                 <div className="text-sm">{activeItem.content}</div>
               </div>
             )}
           </DragOverlay>
+
+          {/* Action Items Drop Zone */}
+          <ActionItemsDropZone isVisible={!!activeId && currentStep >= 2} />
         </DndContext>
 
         <div className="mt-8 flex justify-between">
@@ -600,11 +625,12 @@ export default function RetrospectivePage() {
       <ConvertDialog
         open={convertDialogOpen}
         onOpenChange={setConvertDialogOpen}
-        onConvert={handleConvertItem}
+        retrospectiveId={retroId}
         itemContent={editingContent}
         setItemContent={setEditingContent}
         isSaving={isSaving === convertingItemId}
         user={user}
+        onCreated={loadActionItems} // ДОДАЙТЕ ЦЕ
       />
 
       <ActionItemsTable

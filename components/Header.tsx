@@ -72,11 +72,11 @@ export default function Header() {
                 <Link href="/dashboard" className="px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">
                   Dashboard
                 </Link>
-                <Link href="/templates" className="px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">
-                  Templates
+                <Link href="/stats" className="px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">
+                  Stats
                 </Link>
-                <Link href="/teams" className="px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">
-                  Teams
+                <Link href="/about" className="px-3 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">
+                  About
                 </Link>
               </nav>
             ) : (

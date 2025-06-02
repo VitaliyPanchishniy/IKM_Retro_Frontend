@@ -431,7 +431,7 @@ export function ActionItemsTable({ retrospectiveId, isVisible, user, onItemConve
                         </div>
                       ) : (
                         <h3
-                          className="font-medium text-sm line-clamp-2 cursor-pointer"
+                          className="font-medium text-sm line-clamp-2 cursor-pointer flex-1"
                           onDoubleClick={() => handleDescriptionDoubleClick(item)}
                         >
                           {item.description}
@@ -439,77 +439,94 @@ export function ActionItemsTable({ retrospectiveId, isVisible, user, onItemConve
                       )}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-6 w-6">
+                          <Button variant="ghost" size="icon" className="h-6 w-6 ml-2">
                             <MoreHorizontal className="h-3 w-3" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <Label htmlFor={`status-${item.actionId}`} className="w-full">
-                              Update Status
-                            </Label>
-                            <Select
-                              value={item.status.toString()}
-                              onValueChange={(value) =>
-                                handleUpdateItem(item.actionId, { status: Number.parseInt(value) as ActionItemStatus })
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue>
-                                  {
-                                    Object.entries({
-                                      [ActionItemStatus.Pending]: "Pending",
-                                      [ActionItemStatus.InProgress]: "In Progress",
-                                      [ActionItemStatus.Completed]: "Completed",
-                                      [ActionItemStatus.WontDo]: "Won't Do",
-                                      [ActionItemStatus.Archived]: "Archived",
-                                    }).find(([key, val]) => Number.parseInt(key) === item.status)?.[1]
-                                  }
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value={ActionItemStatus.Pending.toString()}>Pending</SelectItem>
-                                <SelectItem value={ActionItemStatus.InProgress.toString()}>In Progress</SelectItem>
-                                <SelectItem value={ActionItemStatus.Completed.toString()}>Completed</SelectItem>
-                                <SelectItem value={ActionItemStatus.WontDo.toString()}>Won't Do</SelectItem>
-                                <SelectItem value={ActionItemStatus.Archived.toString()}>Archived</SelectItem>
-                              </SelectContent>
-                            </Select>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              setSelectedActionItemId(item.actionId === selectedActionItemId ? null : item.actionId)
+                            }
+                          >
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            {selectedActionItemId === item.actionId ? "Hide Comments" : "Show Comments"}
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Label htmlFor={`priority-${item.actionId}`} className="w-full">
-                              Update Priority
-                            </Label>
-                            <Select
-                              value={item.priority.toString()}
-                              onValueChange={(value) =>
-                                handleUpdateItem(item.actionId, {
-                                  priority: Number.parseInt(value) as ActionItemPriority,
-                                })
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue>
-                                  {
-                                    Object.entries({
-                                      [ActionItemPriority.Critical]: "Critical",
-                                      [ActionItemPriority.High]: "High",
-                                      [ActionItemPriority.Medium]: "Medium",
-                                      [ActionItemPriority.Low]: "Low",
-                                      [ActionItemPriority.VeryLow]: "Very Low",
-                                    }).find(([key, val]) => Number.parseInt(key) === item.priority)?.[1]
-                                  }
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value={ActionItemPriority.Critical.toString()}>Critical</SelectItem>
-                                <SelectItem value={ActionItemPriority.High.toString()}>High</SelectItem>
-                                <SelectItem value={ActionItemPriority.Medium.toString()}>Medium</SelectItem>
-                                <SelectItem value={ActionItemPriority.Low.toString()}>Low</SelectItem>
-                                <SelectItem value={ActionItemPriority.VeryLow.toString()}>Very Low</SelectItem>
-                              </SelectContent>
-                            </Select>
+                          <DropdownMenuSeparator />
+
+                          {/* Status submenu */}
+                          <DropdownMenuItem className="font-medium">Status</DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateItem(item.actionId, { status: ActionItemStatus.Pending })}
+                            className={item.status === ActionItemStatus.Pending ? "bg-gray-100" : ""}
+                          >
+                            <AlertCircle className="h-4 w-4 mr-2" />
+                            Pending
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateItem(item.actionId, { status: ActionItemStatus.InProgress })}
+                            className={item.status === ActionItemStatus.InProgress ? "bg-gray-100" : ""}
+                          >
+                            <Clock className="h-4 w-4 mr-2" />
+                            In Progress
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateItem(item.actionId, { status: ActionItemStatus.Completed })}
+                            className={item.status === ActionItemStatus.Completed ? "bg-gray-100" : ""}
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                            Completed
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateItem(item.actionId, { status: ActionItemStatus.WontDo })}
+                            className={item.status === ActionItemStatus.WontDo ? "bg-gray-100" : ""}
+                          >
+                            <XCircle className="h-4 w-4 mr-2" />
+                            Won't Do
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateItem(item.actionId, { status: ActionItemStatus.Archived })}
+                            className={item.status === ActionItemStatus.Archived ? "bg-gray-100" : ""}
+                          >
+                            <Archive className="h-4 w-4 mr-2" />
+                            Archived
+                          </DropdownMenuItem>
+
+                          <DropdownMenuSeparator />
+
+                          {/* Priority submenu */}
+                          <DropdownMenuItem className="font-medium">Priority</DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateItem(item.actionId, { priority: ActionItemPriority.Critical })}
+                            className={item.priority === ActionItemPriority.Critical ? "bg-gray-100" : ""}
+                          >
+                            Critical
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateItem(item.actionId, { priority: ActionItemPriority.High })}
+                            className={item.priority === ActionItemPriority.High ? "bg-gray-100" : ""}
+                          >
+                            High
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateItem(item.actionId, { priority: ActionItemPriority.Medium })}
+                            className={item.priority === ActionItemPriority.Medium ? "bg-gray-100" : ""}
+                          >
+                            Medium
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateItem(item.actionId, { priority: ActionItemPriority.Low })}
+                            className={item.priority === ActionItemPriority.Low ? "bg-gray-100" : ""}
+                          >
+                            Low
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateItem(item.actionId, { priority: ActionItemPriority.VeryLow })}
+                            className={item.priority === ActionItemPriority.VeryLow ? "bg-gray-100" : ""}
+                          >
+                            Very Low
+                          </DropdownMenuItem>
+
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => handleDeleteItem(item.actionId)} className="text-red-600">
                             <Trash2 className="h-4 w-4 mr-2" />
@@ -518,19 +535,6 @@ export function ActionItemsTable({ retrospectiveId, isVisible, user, onItemConve
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="mt-2 w-full justify-start"
-                      onClick={() => {
-                        setSelectedActionItemId(item.actionId)
-                        loadComments(item.actionId)
-                      }}
-                    >
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      View Comments
-                    </Button>
                   </CardContent>
                 </Card>
               ))}
