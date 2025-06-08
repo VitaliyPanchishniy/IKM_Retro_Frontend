@@ -52,9 +52,9 @@ export default function AboutPage() {
           transition={{ duration: 0.6 }}
           className="py-16 md:py-24 bg-gradient-to-b from-purple-50 to-white"
         >
-          <div className="container px-4 md:px-6">
+          <div className="container mx-auto px-4 md:px-6">
             <div className="max-w-3xl mx-auto text-center">
-              <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">About RetroKM</h1>
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">About RetroIKM</h1>
               <p className="text-xl text-gray-600 mb-8">
                 We're on a mission to make team retrospectives more effective, engaging, and actionable.
               </p>
@@ -68,23 +68,17 @@ export default function AboutPage() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="py-16"
         >
-          <div className="container px-4 md:px-6">
+          <div className="container mx-auto px-4 md:px-6">
             <div className="max-w-3xl mx-auto">
               <h2 className="text-3xl font-bold mb-6">Our Story</h2>
               <p className="text-lg text-gray-700 mb-6">
-                RetroKM was born out of frustration with existing retrospective tools that were either too complex or
-                too simplistic. We wanted to create a platform that strikes the perfect balance - powerful enough for
-                experienced teams, yet intuitive for newcomers to agile methodologies.
+                RetroIKM was developed as a university project assignment. Our goal was to create a simple and effective platform for team retrospectives as part of our coursework.
               </p>
               <p className="text-lg text-gray-700 mb-6">
-                Founded in 2022 by a team of agile enthusiasts, RetroKM has quickly grown to become a trusted tool for
-                teams of all sizes, from startups to enterprise organizations. Our focus has always been on creating a
-                tool that not only facilitates retrospectives but actually makes them enjoyable and productive.
+                The project was completed in 2025 by a group of students who wanted to apply their knowledge of web development and agile methodologies in practice. We focused on building a tool that is easy to use and helps teams reflect on their work.
               </p>
               <p className="text-lg text-gray-700">
-                Today, RetroKM is used by thousands of teams worldwide to improve their processes, foster open
-                communication, and drive continuous improvement. We're proud to be part of the agile community and
-                remain committed to evolving our platform based on user feedback and emerging best practices.
+                RetroIKM is not a commercial or large-scale product, but a demonstration of our learning and teamwork at the university. We hope it can be useful for other students and anyone interested in agile retrospectives.
               </p>
             </div>
           </div>
@@ -96,7 +90,7 @@ export default function AboutPage() {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="py-16 bg-gray-50"
         >
-          <div className="container px-4 md:px-6">
+          <div className="container mx-auto px-4 md:px-6">
             <div className="max-w-3xl mx-auto">
               <h2 className="text-3xl font-bold mb-6">The Problems We Solve</h2>
 
@@ -110,7 +104,7 @@ export default function AboutPage() {
                   <h3 className="text-xl font-semibold mb-3">Ineffective Retrospectives</h3>
                   <p className="text-gray-700">
                     Many teams struggle with retrospectives that don't lead to actionable insights or meaningful change.
-                    RetroKM provides structured templates and facilitation tools that help teams focus on what matters
+                    RetroIKM provides structured templates and facilitation tools that help teams focus on what matters
                     and turn insights into action items.
                   </p>
                 </motion.div>
@@ -137,7 +131,7 @@ export default function AboutPage() {
                 >
                   <h3 className="text-xl font-semibold mb-3">Lack of Follow-Through</h3>
                   <p className="text-gray-700">
-                    Without proper tracking, action items from retrospectives often get lost or forgotten. RetroKM
+                    Without proper tracking, action items from retrospectives often get lost or forgotten. RetroIKM
                     integrates with your existing tools to ensure that insights lead to trackable tasks that can be
                     monitored and completed.
                   </p>
@@ -167,11 +161,11 @@ export default function AboutPage() {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="py-16"
         >
-          <div className="container px-4 md:px-6">
+          <div className="container mx-auto px-4 md:px-6">
             <div className="max-w-3xl mx-auto text-center mb-12">
               <h2 className="text-3xl font-bold mb-4">Meet Our Team</h2>
               <p className="text-lg text-gray-600">
-                The passionate people behind RetroKM who are dedicated to improving team collaboration.
+                The passionate people behind RetroIKM who are dedicated to improving team collaboration.
               </p>
             </div>
 
@@ -183,14 +177,12 @@ export default function AboutPage() {
                 className="flex flex-col items-center text-center"
               >
                 <Avatar className="h-24 w-24 mb-4">
-                  <AvatarImage src="/placeholder.svg?height=96&width=96" alt="Sarah Chen" />
-                  <AvatarFallback className="bg-purple-100 text-purple-700 text-xl">SC</AvatarFallback>
+                  <AvatarImage src="/placeholder.svg?height=96&width=96" alt="Nikita Drobishevsky" />
+                  <AvatarFallback className="bg-purple-100 text-purple-700 text-xl">ND</AvatarFallback>
                 </Avatar>
-                <h3 className="text-xl font-semibold">Sarah Chen</h3>
-                <p className="text-purple-600 mb-2">Co-Founder & CEO</p>
-                <p className="text-sm text-gray-600">
-                  Former Agile Coach with 10+ years of experience helping teams improve their processes.
-                </p>
+                <h3 className="text-xl font-semibold">Nikita Drobishevsky</h3>
+                <p className="text-purple-600 mb-2">Backend Developer</p>
+                
               </motion.div>
 
               <motion.div
@@ -200,14 +192,12 @@ export default function AboutPage() {
                 className="flex flex-col items-center text-center"
               >
                 <Avatar className="h-24 w-24 mb-4">
-                  <AvatarImage src="/placeholder.svg?height=96&width=96" alt="Michael Rodriguez" />
-                  <AvatarFallback className="bg-blue-100 text-blue-700 text-xl">MR</AvatarFallback>
+                  <AvatarImage src="/placeholder.svg?height=96&width=96" alt="Maria Klochkova" />
+                  <AvatarFallback className="bg-blue-100 text-blue-700 text-xl">MK</AvatarFallback>
                 </Avatar>
-                <h3 className="text-xl font-semibold">Michael Rodriguez</h3>
-                <p className="text-purple-600 mb-2">Co-Founder & CTO</p>
-                <p className="text-sm text-gray-600">
-                  Full-stack developer with a passion for creating tools that enhance team collaboration.
-                </p>
+                <h3 className="text-xl font-semibold">Maria Klochkova</h3>
+                <p className="text-purple-600 mb-2">Frontend Developer</p>
+                
               </motion.div>
 
               <motion.div
@@ -217,14 +207,42 @@ export default function AboutPage() {
                 className="flex flex-col items-center text-center"
               >
                 <Avatar className="h-24 w-24 mb-4">
-                  <AvatarImage src="/placeholder.svg?height=96&width=96" alt="Aisha Patel" />
-                  <AvatarFallback className="bg-green-100 text-green-700 text-xl">AP</AvatarFallback>
+                  <AvatarImage src="/placeholder.svg?height=96&width=96" alt="Olha Basenko" />
+                  <AvatarFallback className="bg-green-100 text-green-700 text-xl">OB</AvatarFallback>
                 </Avatar>
-                <h3 className="text-xl font-semibold">Aisha Patel</h3>
-                <p className="text-purple-600 mb-2">Head of Product</p>
-                <p className="text-sm text-gray-600">
-                  Product leader focused on creating intuitive and delightful user experiences.
-                </p>
+                <h3 className="text-xl font-semibold">Olha Basenko</h3>
+                <p className="text-purple-600 mb-2">Business Analyst</p>
+                
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.6 }}
+                className="flex flex-col items-center text-center"
+              >
+                <Avatar className="h-24 w-24 mb-4">
+                  <AvatarImage src="/placeholder.svg?height=96&width=96" alt="Yegor Ponomarev" />
+                  <AvatarFallback className="bg-blue-100 text-blue-700 text-xl">YP</AvatarFallback>
+                </Avatar>
+                <h3 className="text-xl font-semibold">Yegor Ponomarev</h3>
+                <p className="text-purple-600 mb-2">Backend Developer</p>
+                
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.6 }}
+                className="flex flex-col items-center text-center"
+              >
+                <Avatar className="h-24 w-24 mb-4">
+                  <AvatarImage src="/placeholder.svg?height=96&width=96" alt="Vitaliy Panchishny" />
+                  <AvatarFallback className="bg-blue-100 text-blue-700 text-xl">VP</AvatarFallback>
+                </Avatar>
+                <h3 className="text-xl font-semibold">Vitaliy Panchishny</h3>
+                <p className="text-purple-600 mb-2">Frontend Developer</p>
+                
               </motion.div>
             </div>
           </div>
@@ -236,7 +254,7 @@ export default function AboutPage() {
           transition={{ duration: 0.6, delay: 0.5 }}
           className="py-16 bg-purple-100"
         >
-          <div className="container px-4 md:px-6">
+          <div className="container mx-auto px-4 md:px-6">
             <div className="max-w-3xl mx-auto text-center">
               <h2 className="text-3xl font-bold mb-4">Our Values</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8 text-left">
@@ -315,7 +333,7 @@ export default function AboutPage() {
       </main>
 
       <footer className="border-t py-12 bg-white">
-        <div className="container px-4 md:px-6">
+      <div className="container mx-auto px-4 md:px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div>
               <h3 className="font-bold mb-4">RetroIKM</h3>
@@ -376,7 +394,7 @@ export default function AboutPage() {
           </div>
 
           <div className="mt-8 pt-8 border-t text-center text-sm text-gray-600">
-            <p>© 2023 RetroKM. All rights reserved.</p>
+            <p>© 2025 RetroIKM. All rights reserved.</p>
           </div>
         </div>
       </footer>

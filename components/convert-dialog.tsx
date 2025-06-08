@@ -90,7 +90,7 @@ export function ConvertDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create Action Item</DialogTitle>
+          <DialogTitle>Convert to Action Item</DialogTitle>
           <DialogDescription>
             Add a new action item to track follow-up tasks.
           </DialogDescription>
@@ -100,7 +100,7 @@ export function ConvertDialog({
             <div className="mb-2 p-2 bg-red-50 rounded text-red-500 text-sm">{error}</div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="description">Title *</Label>
+            <Label htmlFor="description">Title</Label>
             <Input
               id="description"
               placeholder="Enter action item title"

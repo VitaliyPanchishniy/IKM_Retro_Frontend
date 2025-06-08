@@ -69,12 +69,10 @@ export default function JoinPage() {
 
     try {
       // Join the retrospective via API
-      const retrospective = await retrospectiveApi.joinRetrospective(code)
+      await retrospectiveApi.joinRetrospective(code)
 
-      // Navigate to the retrospective page
-      router.push(
-        `/retrospective?id=${retrospective.id}&name=${encodeURIComponent(retrospective.title)}&template=${retrospectiveApi.getTemplateNameByType(retrospective.template)}`,
-      )
+      // Navigate to the dashboard page
+      router.push("/dashboard")
     } catch (error) {
       console.error("Error joining retrospective:", error)
       setError("Failed to join retrospective. The code may be invalid or expired.")

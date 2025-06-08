@@ -81,7 +81,7 @@ export function ShareDialog({ open, onOpenChange, retrospectiveId }: ShareDialog
                 </p>
               </div>
 
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label htmlFor="invite-link">Invite Link</Label>
                 <div className="flex items-center gap-2">
                   <Input id="invite-link" value={inviteUrl} readOnly className="text-sm" />
@@ -89,16 +89,16 @@ export function ShareDialog({ open, onOpenChange, retrospectiveId }: ShareDialog
                     {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
-              </div>
+              </div> */}
             </div>
 
             <DialogFooter className="sm:justify-start">
               <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
                 Close
               </Button>
-              <Button type="button" className="bg-purple-600 hover:bg-purple-700" onClick={copyToClipboard}>
+              {/* <Button type="button" className="bg-purple-600 hover:bg-purple-700" onClick={copyToClipboard}>
                 {copied ? "Copied!" : "Copy Link"}
-              </Button>
+              </Button> */}
             </DialogFooter>
           </>
         )}

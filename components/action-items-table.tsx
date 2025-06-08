@@ -296,7 +296,7 @@ export function ActionItemsTable({ retrospectiveId, isVisible, user, onItemConve
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="description">Title *</Label>
+                  <Label htmlFor="description">Title </Label>
                   <Input
                     id="description"
                     placeholder="Enter action item title"
